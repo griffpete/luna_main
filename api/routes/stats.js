@@ -7,6 +7,7 @@ const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
 router.get('/stats', async (req, res) => {
   const { owner, repo } = req.query;
   if (!owner || !repo) return res.status(400).json({ error: 'owner and repo are required' });
+  if (!process.env.GITHUB_TOKEN) return res.status(500).json({ error: 'GITHUB_TOKEN not configured', stats: null });
 
   try {
     const thirtyDaysAgo = new Date();
@@ -40,6 +41,7 @@ router.get('/stats', async (req, res) => {
 router.get('/commits', async (req, res) => {
   const { owner, repo, limit = 20 } = req.query;
   if (!owner || !repo) return res.status(400).json({ error: 'owner and repo are required' });
+  if (!process.env.GITHUB_TOKEN) return res.status(500).json({ error: 'GITHUB_TOKEN not configured', commits: [] });
 
   try {
     const { data } = await octokit.repos.listCommits({
@@ -71,6 +73,7 @@ router.get('/commits', async (req, res) => {
 router.get('/contributors', async (req, res) => {
   const { owner, repo } = req.query;
   if (!owner || !repo) return res.status(400).json({ error: 'owner and repo are required' });
+  if (!process.env.GITHUB_TOKEN) return res.status(500).json({ error: 'GITHUB_TOKEN not configured', contributors: [] });
 
   try {
     const { data } = await octokit.repos.listContributors({
@@ -94,6 +97,7 @@ router.get('/contributors', async (req, res) => {
 router.get('/activity', async (req, res) => {
   const { owner, repo, months = 6 } = req.query;
   if (!owner || !repo) return res.status(400).json({ error: 'owner and repo are required' });
+  if (!process.env.GITHUB_TOKEN) return res.status(500).json({ error: 'GITHUB_TOKEN not configured', activity: [] });
 
   try {
     const monthsAgo = new Date();

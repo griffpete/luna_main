@@ -11,8 +11,8 @@ interface RepoContextType {
 const RepoContext = createContext<RepoContextType | undefined>(undefined);
 
 export function RepoProvider({ children }: { children: ReactNode }) {
-  const [owner, setOwner] = useState('acme-corp');
-  const [repo, setRepoName] = useState('frontend-app');
+  const [owner, setOwner] = useState('griffpete');
+  const [repo, setRepoName] = useState('hotTake');
   const [branch, setBranch] = useState('main');
   const apiBase = 'http://localhost:3000';
 

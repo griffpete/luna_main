@@ -1,22 +1,38 @@
 const express = require('express');
 const { Octokit } = require('@octokit/rest');
-const OpenAI = require('openai');
 const { OpenAIEmbeddings } = require('@langchain/openai');
 const { Chroma } = require('@langchain/community/vectorstores/chroma');
 const { RecursiveCharacterTextSplitter } = require('@langchain/textsplitters');
 
 const router = express.Router();
 const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
-const openai = new OpenAI({ apiKey: process.env.OPENAI_TOKEN });
-const embeddings = new OpenAIEmbeddings({ openAIApiKey: process.env.OPENAI_TOKEN });
+
+let openai, embeddings;
+
+function getOpenAI() {
+  if (!openai) {
+    const OpenAI = require('openai');
+    console.log('OPENAI_TOKEN env:', process.env.OPENAI_TOKEN ? 'set' : 'NOT SET');
+    openai = new OpenAI({ apiKey: process.env.OPENAI_TOKEN });
+  }
+  return openai;
+}
+
+function getEmbeddings() {
+  if (!embeddings) {
+    embeddings = new OpenAIEmbeddings({ openAIApiKey: process.env.OPENAI_TOKEN });
+  }
+  return embeddings;
+}
 
 router.post('/index', async (req, res) => {
   const { owner, repo } = req.body;
   if (!owner || !repo) return res.status(400).json({ error: 'owner and repo are required' });
 
   try {
-    try {
-      const oldStore = await Chroma.fromExistingCollection(embeddings, {
+  try {
+    const embeddings = getEmbeddings();
+    const oldStore = await Chroma.fromExistingCollection(embeddings, {
         collectionName: `${owner}-${repo}`,
         host: 'localhost',
         port: 8000
@@ -55,7 +71,7 @@ router.post('/index', async (req, res) => {
     const splitter = new RecursiveCharacterTextSplitter({ chunkSize: 1000, chunkOverlap: 200 });
     const chunks = await splitter.splitDocuments(docs);
 
-    await Chroma.fromDocuments(chunks, embeddings, {
+    await Chroma.fromDocuments(chunks, getEmbeddings(), {
       collectionName: `${owner}-${repo}`,
       host: 'localhost',
       port: 8000
@@ -72,7 +88,7 @@ router.post('/chat', async (req, res) => {
   if (!owner || !repo || !question) return res.status(400).json({ error: 'owner, repo and question are required' });
 
   try {
-    const vectorstore = await Chroma.fromExistingCollection(embeddings, {
+    const vectorstore = await Chroma.fromExistingCollection(getEmbeddings(), {
       collectionName: `${owner}-${repo}`,
       host: 'localhost',
       port: 8000
@@ -81,7 +97,7 @@ router.post('/chat', async (req, res) => {
     const results = await vectorstore.similaritySearch(question, 5);
     const context = results.map(r => `File: ${r.metadata.path}\n${r.pageContent}`).join('\n\n---\n\n');
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: 'gpt-4',
       messages: [
         { role: 'system', content: `You are a helpful assistant that answers questions about a code repository. Use the provided code context to answer. If the answer isn't in the context, say so.` },

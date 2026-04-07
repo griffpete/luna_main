@@ -4,13 +4,21 @@ const { Octokit } = require('@octokit/rest');
 const router = express.Router();
 const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
 
+let openai;
+
+function getOpenAI() {
+  if (!openai) {
+    const OpenAI = require('openai');
+    openai = new OpenAI({ apiKey: process.env.OPENAI_TOKEN });
+  }
+  return openai;
+}
+
 router.post('/commit', async (req, res) => {
   const { owner, repo } = req.body;
   if (!owner || !repo) return res.status(400).json({ error: 'owner and repo are required' });
 
   try {
-    const OpenAI = require('openai');
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_TOKEN });
 
     const { data } = await octokit.repos.listCommits({
       owner,
@@ -34,7 +42,7 @@ router.post('/commit', async (req, res) => {
       patch: file.patch
     }));
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: "gpt-4",
       messages: [
         {

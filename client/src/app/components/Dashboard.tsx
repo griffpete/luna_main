@@ -41,12 +41,12 @@ export function Dashboard() {
         const activity = await activityRes.json();
         const commits = await commitsRes.json();
 
-        const formatNumber = (n: number) => n > 999 ? `${(n / 1000).toFixed(1)}k` : n.toString();
+        const formatNumber = (n?: number) => n ? (n > 999 ? `${(n / 1000).toFixed(1)}k` : n.toString()) : '—';
 
         setKpis([
-          { label: "Total Commits (30d)", value: formatNumber(stats.totalCommits30d), change: `+${Math.floor(Math.random() * 20)}%`, positive: true, icon: GitCommit },
-          { label: "Active Contributors", value: stats.activeContributors.toString(), change: `+${Math.floor(Math.random() * 5)}`, positive: true, icon: Users },
-          { label: "Open Pull Requests", value: stats.openPullRequests.toString(), change: `-${Math.floor(Math.random() * 10)}`, positive: true, icon: GitPullRequest },
+          { label: "Total Commits (30d)", value: formatNumber(stats.totalCommits30d), change: "—", positive: true, icon: GitCommit },
+          { label: "Active Contributors", value: formatNumber(stats.activeContributors), change: "—", positive: true, icon: Users },
+          { label: "Open Pull Requests", value: formatNumber(stats.openPullRequests), change: "—", positive: true, icon: GitPullRequest },
         ]);
 
         setHistoryData(activity.activity || []);
@@ -58,6 +58,8 @@ export function Dashboard() {
           { label: "Active Contributors", value: "—", change: "—", positive: true, icon: Users },
           { label: "Open Pull Requests", value: "—", change: "—", positive: true, icon: GitPullRequest },
         ]);
+        setHistoryData([]);
+        setRecentCommits([]);
       } finally {
         setLoading(false);
       }
