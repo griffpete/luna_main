@@ -16,7 +16,23 @@ export function Layout() {
   const [repos, setRepos] = useState<Repo[]>([]);
   const [loadingRepos, setLoadingRepos] = useState(true);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isIndexing, setIsIndexing] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const indexRepo = async (targetOwner: string, targetRepo: string) => {
+    setIsIndexing(true);
+    try {
+      await fetch(`${apiBase}/index`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ owner: targetOwner, repo: targetRepo })
+      });
+    } catch (err) {
+      console.error('Indexing failed:', err);
+    } finally {
+      setIsIndexing(false);
+    }
+  };
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -47,6 +63,7 @@ export function Layout() {
     const [newOwner, newName] = selectedRepo.fullName.split('/');
     setRepo(newOwner, newName);
     setShowDropdown(false);
+    indexRepo(newOwner, newName);
   };
 
   const navItems = [
@@ -154,8 +171,8 @@ export function Layout() {
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-              <span className="text-sm text-slate-300">Syncing Live</span>
+              <div className={`w-2 h-2 rounded-full ${isIndexing ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)] animate-pulse' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'}`}></div>
+              <span className="text-sm text-slate-300">{isIndexing ? 'Syncing...' : 'Synced'}</span>
             </div>
           </div>
         </header>
