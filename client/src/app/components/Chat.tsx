@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Bot, User, Code, FileText, Loader2, Sparkles } from "lucide-react";
+import { useRepo } from "../context/RepoContext";
 
 type Message = {
   id: string;
@@ -7,42 +8,30 @@ type Message = {
   content: string;
   timestamp: string;
   codeSnippet?: string;
+  sources?: string[];
 };
 
-const MOCK_MESSAGES: Message[] = [
-  {
-    id: "1",
-    role: "ai",
-    content: "Hi there! I'm Luna, your codebase AI assistant. I've analyzed `acme-corp/frontend-app` and I'm ready to answer any questions about the architecture, dependencies, or specific functions.",
-    timestamp: "10:00 AM",
-  },
-  {
-    id: "2",
-    role: "user",
-    content: "Where is the main authentication logic handled?",
-    timestamp: "10:02 AM",
-  },
-  {
-    id: "3",
-    role: "ai",
-    content: "The authentication logic is primarily handled in the `src/services/auth.ts` file. It exports a custom hook `useAuth()` which manages the JWT token lifecycle using the Context API.\n\nHere's a quick look at the core structure:",
-    timestamp: "10:02 AM",
-    codeSnippet: `export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
-  
-  const login = async (credentials: LoginDto) => {
-    const { token } = await api.post('/auth/login', credentials);
-    localStorage.setItem('jwt', token);
-    setUser(jwtDecode(token));
-  };
-  
-  return { user, login };
-}`,
-  },
-];
-
 export function Chat() {
-  const [messages, setMessages] = useState<Message[]>(MOCK_MESSAGES);
+  const { owner, repo, apiBase } = useRepo();
+  const [messages, setMessages] = useState<Message[]>([]);
+
+  useEffect(() => {
+    setMessages([{
+      id: "welcome",
+      role: "ai",
+      content: `Hi there! I'm Luna, your codebase AI assistant. I've analyzed \`${owner}/${repo}\` and I'm ready to answer any questions about the architecture, dependencies, or specific functions.`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    }]);
+  }, [owner, repo]);
+
+  const handleClearContext = () => {
+    setMessages([{
+      id: "welcome",
+      role: "ai",
+      content: `Context cleared. I'm ready to start fresh with \`${owner}/${repo}\`. What would you like to know?`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    }]);
+  };
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -53,7 +42,7 @@ export function Chat() {
     }
   }, [messages, isTyping]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) return;
 
     const newMessage: Message = {
@@ -67,17 +56,38 @@ export function Chat() {
     setInput("");
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      const response = await fetch(`${apiBase}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          owner,
+          repo,
+          question: input
+        })
+      });
+
+      const data = await response.json();
       setIsTyping(false);
+
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         role: "ai",
-        content: "I've analyzed that part of the codebase. It seems that component relies heavily on the `useEffect` hook for data fetching. Consider extracting that logic into a custom hook or using a library like React Query for better caching and error handling.",
+        content: data.answer || "I'm sorry, I couldn't process that request.",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        sources: data.sources
       };
       setMessages((prev) => [...prev, aiResponse]);
-    }, 1500);
+    } catch (err) {
+      setIsTyping(false);
+      const errorResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "ai",
+        content: "I'm having trouble connecting to the analysis service. Please make sure the repository has been indexed first.",
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setMessages((prev) => [...prev, errorResponse]);
+    }
   };
 
   return (
@@ -90,11 +100,11 @@ export function Chat() {
           </div>
           <div>
             <h2 className="text-lg font-semibold tracking-tight text-white">Luna AI</h2>
-            <p className="text-xs text-slate-400">Context: acme-corp/frontend-app (Main branch)</p>
+            <p className="text-xs text-slate-400">Context: {owner}/{repo} (Main branch)</p>
           </div>
         </div>
         <div className="flex gap-2">
-          <button className="flex items-center gap-2 text-xs font-medium text-slate-400 bg-slate-800 hover:bg-slate-700 hover:text-white px-3 py-1.5 rounded-lg transition-colors">
+          <button onClick={handleClearContext} className="flex items-center gap-2 text-xs font-medium text-slate-400 bg-slate-800 hover:bg-slate-700 hover:text-white px-3 py-1.5 rounded-lg transition-colors">
             <FileText className="w-4 h-4" />
             Clear Context
           </button>

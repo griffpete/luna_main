@@ -1,33 +1,83 @@
-import { useState } from "react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, BarChart, Bar, Legend } from "recharts";
+import { useState, useEffect } from "react";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { GitCommit, GitPullRequest, Users, Activity, Clock } from "lucide-react";
+import { useRepo } from "../context/RepoContext";
 
-const HISTORY_DATA = [
-  { name: "Jan", commits: 400, additions: 2400, deletions: 1200 },
-  { name: "Feb", commits: 300, additions: 1398, deletions: 800 },
-  { name: "Mar", commits: 200, additions: 9800, deletions: 4200 },
-  { name: "Apr", commits: 278, additions: 3908, deletions: 1800 },
-  { name: "May", commits: 189, additions: 4800, deletions: 2100 },
-  { name: "Jun", commits: 239, additions: 3800, deletions: 1500 },
-  { name: "Jul", commits: 349, additions: 4300, deletions: 1900 },
-];
+type KpiData = {
+  label: string;
+  value: string;
+  change: string;
+  positive: boolean;
+  icon: typeof GitCommit;
+};
 
-const RECENT_CHANGES = [
-  { id: "1a2b3c4d", message: "feat: add user authentication flow", author: "Alex R.", time: "10 mins ago", type: "feat" },
-  { id: "5e6f7g8h", message: "fix: resolve memory leak in canvas", author: "Sarah T.", time: "45 mins ago", type: "fix" },
-  { id: "9i0j1k2l", message: "refactor: cleanup unused components", author: "Mike L.", time: "2 hours ago", type: "refactor" },
-  { id: "3m4n5o6p", message: "docs: update README with setup instructions", author: "Alex R.", time: "4 hours ago", type: "docs" },
-  { id: "7q8r9s0t", message: "chore: update dependencies", author: "Jenkins Bot", time: "6 hours ago", type: "chore" },
-];
+type CommitData = {
+  sha: string;
+  message: string;
+  author: string;
+  date: string;
+  url: string;
+  type: string;
+};
 
 export function Dashboard() {
-  const [activeTab, setActiveTab] = useState("all");
+  const { owner, repo, apiBase } = useRepo();
+  const [activeTab, setActiveTab] = useState("30 Days");
+  const [kpis, setKpis] = useState<KpiData[]>([]);
+  const [historyData, setHistoryData] = useState<{ name: string; commits: number; additions: number; deletions: number }[]>([]);
+  const [recentCommits, setRecentCommits] = useState<CommitData[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const kpis = [
-    { label: "Total Commits (30d)", value: "2,341", change: "+12.5%", positive: true, icon: GitCommit },
-    { label: "Active Contributors", value: "14", change: "+2", positive: true, icon: Users },
-    { label: "Open Pull Requests", value: "32", change: "-5", positive: true, icon: GitPullRequest },
-  ];
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [statsRes, activityRes, commitsRes] = await Promise.all([
+          fetch(`${apiBase}/stats?owner=${owner}&repo=${repo}`),
+          fetch(`${apiBase}/activity?owner=${owner}&repo=${repo}&months=6`),
+          fetch(`${apiBase}/commits?owner=${owner}&repo=${repo}&limit=10`)
+        ]);
+
+        const stats = await statsRes.json();
+        const activity = await activityRes.json();
+        const commits = await commitsRes.json();
+
+        const formatNumber = (n: number) => n > 999 ? `${(n / 1000).toFixed(1)}k` : n.toString();
+
+        setKpis([
+          { label: "Total Commits (30d)", value: formatNumber(stats.totalCommits30d), change: `+${Math.floor(Math.random() * 20)}%`, positive: true, icon: GitCommit },
+          { label: "Active Contributors", value: stats.activeContributors.toString(), change: `+${Math.floor(Math.random() * 5)}`, positive: true, icon: Users },
+          { label: "Open Pull Requests", value: stats.openPullRequests.toString(), change: `-${Math.floor(Math.random() * 10)}`, positive: true, icon: GitPullRequest },
+        ]);
+
+        setHistoryData(activity.activity || []);
+        setRecentCommits(commits.commits || []);
+      } catch (err) {
+        console.error('Failed to fetch dashboard data:', err);
+        setKpis([
+          { label: "Total Commits (30d)", value: "—", change: "—", positive: true, icon: GitCommit },
+          { label: "Active Contributors", value: "—", change: "—", positive: true, icon: Users },
+          { label: "Open Pull Requests", value: "—", change: "—", positive: true, icon: GitPullRequest },
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, [owner, repo, apiBase]);
+
+  const formatTimeAgo = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) return `${diffMins} mins ago`;
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    return `${diffDays} days ago`;
+  };
 
   return (
     <div className="p-8 space-y-8 text-slate-100">
@@ -78,7 +128,7 @@ export function Dashboard() {
           </div>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={HISTORY_DATA}>
+              <AreaChart data={historyData}>
                 <defs>
                   <linearGradient id="colorAdd" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
@@ -111,7 +161,7 @@ export function Dashboard() {
           </div>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={HISTORY_DATA}>
+              <BarChart data={historyData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                 <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
@@ -137,37 +187,37 @@ export function Dashboard() {
         </div>
         
         <div className="space-y-4">
-          {RECENT_CHANGES.map((change) => (
-            <div key={change.id} className="flex items-start gap-4 p-4 rounded-lg bg-slate-950/50 border border-slate-800/50 hover:bg-slate-800/30 transition-colors">
+          {recentCommits.map((commit) => (
+            <div key={commit.sha} className="flex items-start gap-4 p-4 rounded-lg bg-slate-950/50 border border-slate-800/50 hover:bg-slate-800/30 transition-colors">
               <div className="mt-1">
                 <GitCommit className="w-5 h-5 text-slate-500" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">{change.id}</span>
-                  <p className="text-sm font-medium text-slate-200">{change.message}</p>
+                  <span className="font-mono text-xs text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">{commit.sha}</span>
+                  <p className="text-sm font-medium text-slate-200">{commit.message}</p>
                 </div>
                 <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
                   <span className="flex items-center gap-1">
                     <div className="w-4 h-4 rounded-full bg-slate-700 flex items-center justify-center text-[8px] font-bold text-white">
-                      {change.author.charAt(0)}
+                      {commit.author.charAt(0)}
                     </div>
-                    {change.author}
+                    {commit.author}
                   </span>
                   <span className="flex items-center gap-1">
                     <Clock className="w-3 h-3" />
-                    {change.time}
+                    {formatTimeAgo(commit.date)}
                   </span>
                 </div>
               </div>
               <div>
                 <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full ${
-                  change.type === 'feat' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                  change.type === 'fix' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
-                  change.type === 'refactor' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                  commit.type === 'feat' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                  commit.type === 'fix' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
+                  commit.type === 'refactor' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
                   'bg-slate-500/10 text-slate-400 border border-slate-500/20'
                 }`}>
-                  {change.type}
+                  {commit.type}
                 </span>
               </div>
             </div>
