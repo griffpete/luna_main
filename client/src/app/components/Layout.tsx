@@ -1,9 +1,54 @@
 import { Outlet, NavLink } from "react-router";
-import { Activity, LayoutDashboard, MessageSquare, Moon, Code2, Settings } from "lucide-react";
+import { Activity, LayoutDashboard, MessageSquare, Moon, Code2, Settings, ChevronDown, Loader2 } from "lucide-react";
 import { useRepo } from "../context/RepoContext";
+import { useState, useEffect, useRef } from "react";
+
+type Repo = {
+  name: string;
+  fullName: string;
+  description: string;
+  private: boolean;
+  url: string;
+};
 
 export function Layout() {
-  const { owner, repo } = useRepo();
+  const { owner, repo, apiBase, setRepo } = useRepo();
+  const [repos, setRepos] = useState<Repo[]>([]);
+  const [loadingRepos, setLoadingRepos] = useState(true);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    async function fetchRepos() {
+      try {
+        const res = await fetch(`${apiBase}/repos`);
+        const data = await res.json();
+        setRepos(data.repos || []);
+      } catch (err) {
+        console.error('Failed to fetch repos:', err);
+      } finally {
+        setLoadingRepos(false);
+      }
+    }
+    fetchRepos();
+  }, [apiBase]);
+
+  const handleSelectRepo = (selectedRepo: Repo) => {
+    const [newOwner, newName] = selectedRepo.fullName.split('/');
+    setRepo(newOwner, newName);
+    setShowDropdown(false);
+  };
+
   const navItems = [
     { name: "Overview", path: "/", icon: Activity },
     { name: "Structure", path: "/structure", icon: LayoutDashboard },
@@ -70,7 +115,42 @@ export function Layout() {
         <header className="h-16 border-b border-slate-800 bg-slate-950/50 flex items-center px-8 justify-between">
           <div className="flex items-center gap-2 text-sm text-slate-400">
             <Code2 className="w-4 h-4" />
-            <span>Repository: <strong className="text-slate-200 font-medium">{owner}/{repo}</strong></span>
+            <span>Repository: </span>
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setShowDropdown(!showDropdown)}
+                disabled={loadingRepos}
+                className="flex items-center gap-2 text-slate-200 font-medium hover:text-white transition-colors disabled:opacity-50"
+              >
+                {owner}/{repo}
+                {loadingRepos ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </button>
+              {showDropdown && (
+                <div className="absolute top-full left-0 mt-1 w-64 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto">
+                  {repos.map((r) => (
+                    <button
+                      key={r.fullName}
+                      onClick={() => handleSelectRepo(r)}
+                      className={`w-full text-left px-4 py-3 hover:bg-slate-800 transition-colors border-b border-slate-800 last:border-b-0 ${
+                        r.fullName === `${owner}/${repo}` ? 'bg-indigo-500/10' : ''
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-200 font-medium">{r.name}</span>
+                        {r.private && (
+                          <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded">Private</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1 truncate">{r.description || 'No description'}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">

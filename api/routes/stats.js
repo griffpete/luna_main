@@ -4,6 +4,30 @@ const { Octokit } = require('@octokit/rest');
 const router = express.Router();
 const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
 
+router.get('/repos', async (req, res) => {
+  if (!process.env.GITHUB_TOKEN) return res.status(500).json({ error: 'GITHUB_TOKEN not configured', repos: [] });
+
+  try {
+    const { data } = await octokit.repos.listForAuthenticatedUser({
+      type: 'owner',
+      sort: 'updated',
+      per_page: 100
+    });
+
+    res.json({
+      repos: data.map(r => ({
+        name: r.name,
+        fullName: r.full_name,
+        description: r.description,
+        private: r.private,
+        url: r.html_url
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get('/stats', async (req, res) => {
   const { owner, repo } = req.query;
   if (!owner || !repo) return res.status(400).json({ error: 'owner and repo are required' });
