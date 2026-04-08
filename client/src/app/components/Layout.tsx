@@ -1,5 +1,5 @@
 import { Outlet, NavLink } from "react-router";
-import { Activity, LayoutDashboard, MessageSquare, Moon, Code2, Settings, ChevronDown, Loader2, Layers } from "lucide-react";
+import { Activity, LayoutDashboard, MessageSquare, Moon, Code2, Settings, ChevronDown, Loader2, Layers, BarChart3 } from "lucide-react";
 import { useRepo } from "../context/RepoContext";
 import { useState, useEffect, useRef } from "react";
 
@@ -84,6 +84,7 @@ export function Layout() {
 
   const navItems = [
     { name: "Overview", path: "/", icon: Activity },
+    { name: "Data", path: "/data", icon: BarChart3 },
     { name: "Structure", path: "/structure", icon: LayoutDashboard },
     { name: "Luna AI Chat", path: "/chat", icon: MessageSquare },
   ];

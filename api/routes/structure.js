@@ -2,7 +2,7 @@ const express = require('express');
 const { Octokit } = require('@octokit/rest');
 const { OpenAIEmbeddings } = require('@langchain/openai');
 const { Chroma } = require('@langchain/community/vectorstores/chroma');
-const { getLastAnalysis, setLastAnalysis } = require('../utils/state');
+const { getLastAnalysis, setLastAnalysis, getAnalysisData, setAnalysisData } = require('../utils/state');
 
 const router = express.Router();
 const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
@@ -136,7 +136,7 @@ router.get('/structure/status', async (req, res) => {
     });
 
     const currentCommitCount = commits[0]?.commit?.message ? 1 : 0;
-    const lastAnalysis = getLastAnalysis(owner, repo);
+    const lastAnalysis = await getLastAnalysis(owner, repo);
 
     res.json({
       currentCommitCount,
@@ -163,7 +163,7 @@ router.post('/structure/analyze', async (req, res) => {
         repo,
         per_page: 100
       });
-      const lastAnalysis = getLastAnalysis(owner, repo);
+      const lastAnalysis = await getLastAnalysis(owner, repo);
       
       if (!lastAnalysis || commits.length > lastAnalysis.commitCount) {
         needsIndex = true;
@@ -329,6 +329,9 @@ Return ONLY valid JSON. Minimum 15 nodes total across all views.`
         uiComponents: []
       };
     }
+
+    await setLastAnalysis(owner, repo, finalCommits.length, finalCommits[0]?.sha);
+    await setAnalysisData(owner, repo, analysis);
 
     res.json(analysis);
   } catch (error) {
