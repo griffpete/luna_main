@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { GitCommit, Activity, Clock } from "lucide-react";
+import { GitCommit, Activity, Clock, Sparkles } from "lucide-react";
 import { useRepo } from "../context/RepoContext";
 
 type CommitData = {
@@ -14,11 +14,25 @@ type CommitData = {
 export function Dashboard() {
   const { owner, repo, apiBase } = useRepo();
   const [recentCommits, setRecentCommits] = useState<CommitData[]>([]);
+  const [description, setDescription] = useState<string>('');
+  const [recentHistory, setRecentHistory] = useState<string>('');
+  const [direction, setDirection] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
+      console.log('Dashboard: fetching data...');
+      setLoading(true);
       try {
+        const overviewRes = await fetch(`${apiBase}/structure/overview?owner=${owner}&repo=${repo}`);
+        console.log('Overview response status:', overviewRes.status);
+        const overviewData = await overviewRes.json();
+        console.log('Overview data received:', overviewData);
+        
+        setDescription(overviewData.description || '');
+        setRecentHistory(overviewData.recentHistory || '');
+        setDirection(overviewData.direction || '');
+        
         const commitsRes = await fetch(`${apiBase}/commits?owner=${owner}&repo=${repo}&limit=10`);
         const commits = await commitsRes.json();
         setRecentCommits(commits.commits || []);
@@ -26,6 +40,7 @@ export function Dashboard() {
         console.error('Failed to fetch dashboard data:', err);
       } finally {
         setLoading(false);
+        console.log('Dashboard: loading complete');
       }
     }
 
@@ -49,14 +64,43 @@ export function Dashboard() {
     <div className="p-8 space-y-8 text-slate-100">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Repository Overview</h2>
-        <p className="text-slate-400 mt-1">Recent activity from {owner}/{repo}</p>
+        <p className="text-slate-400 mt-1">Insights for {owner}/{repo}</p>
       </div>
 
-      {/* Recent Activity List */}
+      {/* AI Generated Overview */}
+      <div className="space-y-4">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-indigo-400" />
+            Project Description
+          </h3>
+          <p className="text-slate-300 leading-relaxed">{description || 'Click the refresh button to generate project insights.'}</p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-indigo-400" />
+              Recent Activity
+            </h3>
+            <p className="text-slate-300 text-sm leading-relaxed">{recentHistory || 'Click the refresh button to generate recent activity summary.'}</p>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-emerald-400" />
+              Project Trajectory
+            </h3>
+            <p className="text-slate-300 text-sm leading-relaxed">{direction || 'Click the refresh button to generate project trajectory.'}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Commits */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Activity className="w-5 h-5 text-indigo-400" />
+            <GitCommit className="w-5 h-5 text-indigo-400" />
             Recent Changes
           </h3>
         </div>

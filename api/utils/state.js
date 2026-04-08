@@ -13,11 +13,14 @@ async function getLastAnalysis(owner, repo) {
   return {
     lastAnalyzed: data.last_analyzed,
     commitCount: data.commit_count,
-    commitSha: data.commit_sha
+    commitSha: data.commit_sha,
+    description: data.description,
+    recentHistory: data.recent_history,
+    direction: data.direction
   };
 }
 
-async function setLastAnalysis(owner, repo, commitCount, commitSha = null) {
+async function setLastAnalysis(owner, repo, commitCount, commitSha = null, overviewData = {}) {
   if (!supabase) return;
 
   const { error } = await supabase
@@ -26,7 +29,10 @@ async function setLastAnalysis(owner, repo, commitCount, commitSha = null) {
       repo: `${owner}/${repo}`,
       last_analyzed: new Date().toISOString(),
       commit_count: commitCount,
-      commit_sha: commitSha
+      commit_sha: commitSha,
+      description: overviewData.description || null,
+      recent_history: overviewData.recentHistory || null,
+      direction: overviewData.direction || null
     }, {
       onConflict: 'repo'
     });
@@ -58,4 +64,32 @@ async function setAnalysisData(owner, repo, analysisData) {
   if (error) console.error('Failed to save analysis data:', error);
 }
 
-module.exports = { getLastAnalysis, setLastAnalysis, getAnalysisData, setAnalysisData };
+async function getOverviewData(owner, repo) {
+  if (!supabase) {
+    console.log('getOverviewData: Supabase not configured');
+    return null;
+  }
+
+  const repoKey = `${owner}/${repo}`;
+  console.log('getOverviewData: querying for', repoKey);
+  
+  const { data, error } = await supabase
+    .from('repo_analysis')
+    .select('description, recent_history, direction')
+    .eq('repo', repoKey)
+    .single();
+
+  console.log('getOverviewData: result:', { data, error });
+
+  if (error || !data) {
+    console.log('getOverviewData: no data found');
+    return null;
+  }
+  return {
+    description: data.description,
+    recentHistory: data.recent_history,
+    direction: data.direction
+  };
+}
+
+module.exports = { getLastAnalysis, setLastAnalysis, getAnalysisData, setAnalysisData, getOverviewData };

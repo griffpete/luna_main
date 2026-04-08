@@ -1,4 +1,7 @@
--- Run this in your Supabase SQL Editor to create the required tables
+-- Run this in your Supabase SQL Editor to create/update the schema
+
+-- Drop existing table if you want fresh start (uncomment if needed)
+-- DROP TABLE IF EXISTS repo_analysis;
 
 -- Repo Analysis Table
 CREATE TABLE IF NOT EXISTS repo_analysis (
@@ -7,6 +10,9 @@ CREATE TABLE IF NOT EXISTS repo_analysis (
   last_analyzed TIMESTAMPTZ,
   commit_count INTEGER DEFAULT 0,
   commit_sha VARCHAR(255),
+  description TEXT,
+  recent_history TEXT,
+  direction TEXT,
   analysis_data JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

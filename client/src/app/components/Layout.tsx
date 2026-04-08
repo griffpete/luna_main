@@ -1,5 +1,5 @@
 import { Outlet, NavLink } from "react-router";
-import { Activity, LayoutDashboard, MessageSquare, Moon, Code2, Settings, ChevronDown, Loader2, Layers, BarChart3 } from "lucide-react";
+import { Activity, LayoutDashboard, MessageSquare, Moon, Code2, Settings, ChevronDown, Loader2, Layers, BarChart3, RefreshCw } from "lucide-react";
 import { useRepo } from "../context/RepoContext";
 import { useState, useEffect, useRef } from "react";
 
@@ -36,12 +36,28 @@ export function Layout() {
       await fetch(`${apiBase}/structure/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ owner, repo })
+        body: JSON.stringify({ owner, repo, forceReindex: true })
       });
       setNeedsAnalysis(false);
       window.location.reload();
     } catch (err) {
       console.error('Analysis failed:', err);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleRefreshOverview = async () => {
+    setIsAnalyzing(true);
+    try {
+      await fetch(`${apiBase}/structure/refresh-overview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ owner, repo })
+      });
+      window.location.reload();
+    } catch (err) {
+      console.error('Refresh failed:', err);
     } finally {
       setIsAnalyzing(false);
     }
@@ -197,9 +213,19 @@ export function Layout() {
                 {isAnalyzing ? 'Analyzing...' : 'Analyze Branch'}
               </button>
             )}
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${needsAnalysis ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'}`}></div>
-              <span className="text-sm text-slate-300">{needsAnalysis ? 'Needs Update' : 'Synced'}</span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleRefreshOverview}
+                disabled={isAnalyzing}
+                className="flex items-center gap-1.5 text-slate-400 hover:text-white text-sm transition-colors disabled:opacity-50"
+                title="Refresh Overview"
+              >
+                {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              </button>
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${needsAnalysis ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'}`}></div>
+                <span className="text-sm text-slate-300">{needsAnalysis ? 'Needs Update' : 'Synced'}</span>
+              </div>
             </div>
           </div>
         </header>

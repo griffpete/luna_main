@@ -2,7 +2,7 @@ const express = require('express');
 const { Octokit } = require('@octokit/rest');
 const { OpenAIEmbeddings } = require('@langchain/openai');
 const { Chroma } = require('@langchain/community/vectorstores/chroma');
-const { getLastAnalysis, setLastAnalysis, getAnalysisData, setAnalysisData } = require('../utils/state');
+const { getLastAnalysis, setLastAnalysis, getAnalysisData, setAnalysisData, getOverviewData } = require('../utils/state');
 
 const router = express.Router();
 const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
@@ -20,62 +20,78 @@ function getOpenAI() {
   return new OpenAI({ apiKey: process.env.OPENAI_TOKEN });
 }
 
+function safeJsonParse(text) {
+  try {
+    text = text.trim();
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    return JSON.parse(text);
+  } catch (e) {
+    console.error('Safe JSON parse failed:', e.message);
+    return null;
+  }
+}
+
 router.get('/structure/overview', async (req, res) => {
   const { owner, repo } = req.query;
   if (!owner || !repo) return res.status(400).json({ error: 'owner and repo are required' });
 
   try {
-    const { data: tree } = await octokit.git.getTree({
-      owner,
-      repo,
-      tree_sha: 'HEAD',
-      recursive: 'true'
-    });
+    const lastAnalysis = await getLastAnalysis(owner, repo);
 
-    const files = tree.tree.filter(f => f.type === 'blob');
-    const fileCount = files.length;
+    let topLanguages = [];
+    let totalFiles = 0;
+    let codeFiles = 0;
 
-    const codeFiles = files.filter(f => {
-      const ext = f.path.split('.').pop()?.toLowerCase();
-      return ['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'go', 'rs', 'rb', 'php', 'c', 'cpp', 'cs'].includes(ext);
-    });
+    try {
+      const { data: tree } = await octokit.git.getTree({
+        owner,
+        repo,
+        tree_sha: 'HEAD',
+        recursive: 'true'
+      });
 
-    const dependencyFiles = files.filter(f => {
-      const name = f.path.toLowerCase();
-      return name.includes('package.json') || 
-             name.includes('requirements.txt') || 
-             name.includes('pipfile') ||
-             name.includes('gemfile') ||
-             name.includes('cargo.toml') ||
-             name.includes('go.mod') ||
-             name.includes('pom.xml') ||
-             name.includes('build.gradle');
-    });
+      const files = tree.tree.filter(f => f.type === 'blob');
+      totalFiles = files.length;
 
-    const languages = {};
-    files.forEach(f => {
-      const ext = f.path.split('.').pop()?.toLowerCase();
-      const langMap = {
-        'js': 'JavaScript', 'jsx': 'JavaScript', 'ts': 'TypeScript', 'tsx': 'TypeScript',
-        'py': 'Python', 'java': 'Java', 'go': 'Go', 'rs': 'Rust',
-        'rb': 'Ruby', 'php': 'PHP', 'c': 'C', 'cpp': 'C++', 'cs': 'C#'
-      };
-      if (langMap[ext]) {
-        languages[langMap[ext]] = (languages[langMap[ext]] || 0) + 1;
-      }
-    });
+      codeFiles = files.filter(f => {
+        const ext = f.path.split('.').pop()?.toLowerCase();
+        return ['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'go', 'rs', 'rb', 'php', 'c', 'cpp', 'cs'].includes(ext);
+      }).length;
 
-    const topLanguages = Object.entries(languages)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([lang, count]) => ({ language: lang, count }));
+      const languages = {};
+      files.forEach(f => {
+        const ext = f.path.split('.').pop()?.toLowerCase();
+        const langMap = {
+          'js': 'JavaScript', 'jsx': 'JavaScript', 'ts': 'TypeScript', 'tsx': 'TypeScript',
+          'py': 'Python', 'java': 'Java', 'go': 'Go', 'rs': 'Rust',
+          'rb': 'Ruby', 'php': 'PHP', 'c': 'C', 'cpp': 'C++', 'cs': 'C#'
+        };
+        if (langMap[ext]) {
+          languages[langMap[ext]] = (languages[langMap[ext]] || 0) + 1;
+        }
+      });
 
-    res.json({
-      totalFiles: fileCount,
-      codeFiles: codeFiles.length,
-      dependencyFiles: dependencyFiles.length,
-      topLanguages
-    });
+      topLanguages = Object.entries(languages)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([lang, count]) => ({ language: lang, count }));
+    } catch (githubError) {
+      console.log('GitHub API failed, returning cached data');
+    }
+
+    const response = {
+      totalFiles,
+      codeFiles,
+      topLanguages,
+      description: lastAnalysis?.description || null,
+      recentHistory: lastAnalysis?.recentHistory || null,
+      direction: lastAnalysis?.direction || null
+    };
+    
+    res.json(response);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -148,14 +164,155 @@ router.get('/structure/status', async (req, res) => {
   }
 });
 
+router.get('/structure/overview', async (req, res) => {
+  const { owner, repo } = req.query;
+  if (!owner || !repo) return res.status(400).json({ error: 'owner and repo are required' });
+
+  try {
+    const lastAnalysis = await getLastAnalysis(owner, repo);
+
+    let topLanguages = [];
+    let totalFiles = 0;
+    let codeFiles = 0;
+
+    try {
+      const { data: tree } = await octokit.git.getTree({
+        owner,
+        repo,
+        tree_sha: 'HEAD',
+        recursive: 'true'
+      });
+
+      const files = tree.tree.filter(f => f.type === 'blob');
+      totalFiles = files.length;
+
+      codeFiles = files.filter(f => {
+        const ext = f.path.split('.').pop()?.toLowerCase();
+        return ['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'go', 'rs', 'rb', 'php', 'c', 'cpp', 'cs'].includes(ext);
+      }).length;
+
+      const languages = {};
+      files.forEach(f => {
+        const ext = f.path.split('.').pop()?.toLowerCase();
+        const langMap = {
+          'js': 'JavaScript', 'jsx': 'JavaScript', 'ts': 'TypeScript', 'tsx': 'TypeScript',
+          'py': 'Python', 'java': 'Java', 'go': 'Go', 'rs': 'Rust',
+          'rb': 'Ruby', 'php': 'PHP', 'c': 'C', 'cpp': 'C++', 'cs': 'C#'
+        };
+        if (langMap[ext]) {
+          languages[langMap[ext]] = (languages[langMap[ext]] || 0) + 1;
+        }
+      });
+
+      topLanguages = Object.entries(languages)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([lang, count]) => ({ language: lang, count }));
+    } catch (githubError) {
+      console.log('GitHub API failed, returning cached data');
+    }
+
+    const response = {
+      totalFiles,
+      codeFiles,
+      topLanguages,
+      description: lastAnalysis?.description || null,
+      recentHistory: lastAnalysis?.recentHistory || null,
+      direction: lastAnalysis?.direction || null
+    };
+    
+    res.json(response);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/structure/refresh-overview', async (req, res) => {
+  const { owner, repo } = req.body;
+  if (!owner || !repo) return res.status(400).json({ error: 'owner and repo are required' });
+
+  try {
+    const { data: commits } = await octokit.repos.listCommits({
+      owner,
+      repo,
+      per_page: 10
+    });
+
+    const recentCommitsContext = commits.map(c => ({
+      sha: c.sha.substring(0, 7),
+      message: c.commit.message.split('\n')[0],
+      author: c.commit.author.name,
+      date: c.commit.author.date
+    }));
+
+    let codeContext = '';
+    try {
+      const collectionName = getCollectionName(owner, repo);
+      const vectorstore = await Chroma.fromExistingCollection(getEmbeddings(), {
+        collectionName,
+        host: 'localhost',
+        port: 8000
+      });
+      const results = await vectorstore.similaritySearch('project structure, main files, purpose, architecture', 10);
+      codeContext = results.map(r => `File: ${r.metadata.path}\n${r.pageContent.slice(0, 500)}`).join('\n\n');
+    } catch (e) {
+      console.log('ChromaDB not available, using commits only');
+      codeContext = '';
+    }
+
+    const openai = getOpenAI();
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a project analyst. Analyze the provided information and return a JSON object with exactly these fields:
+
+1. "description": A concise 1-2 sentence description of what this project does based on the codebase structure and commit history. Make it accessible to non-technical stakeholders.
+
+2. "recentHistory": A brief paragraph summarizing what has been worked on recently (last 5-10 commits). Focus on what features were added, bugs were fixed, or major changes were made.
+
+3. "direction": Based on the recent commit history and patterns, describe the current trajectory of the project. Is it in active development? Maintenance mode? New feature development? Refactoring? Be specific.
+
+Return ONLY valid JSON with these three fields, nothing else.`
+        },
+        {
+          role: 'user',
+          content: `Recent commits:\n${JSON.stringify(recentCommitsContext, null, 2)}${codeContext ? '\n\nCodebase context:\n' + codeContext.slice(0, 2000) : ''}`
+        }
+      ]
+    });
+
+    let overviewData = { description: null, recentHistory: null, direction: null };
+    try {
+      const rawRefresh = completion.choices[0].message.content;
+      console.log('Refresh AI response:', rawRefresh.slice(0, 300));
+      overviewData = safeJsonParse(rawRefresh) || overviewData;
+      console.log('Refresh parsed:', overviewData);
+    } catch (e) {
+      console.error('Failed to parse overview response:', e);
+    }
+
+    const lastAnalysis = await getLastAnalysis(owner, repo);
+    await setLastAnalysis(owner, repo, lastAnalysis?.commitCount || commits.length, commits[0]?.sha, overviewData);
+
+    res.json(overviewData);
+  } catch (error) {
+    console.error('Refresh overview error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.post('/structure/analyze', async (req, res) => {
   const { owner, repo, forceReindex = false } = req.body;
   if (!owner || !repo) return res.status(400).json({ error: 'owner and repo are required' });
 
   const collectionName = getCollectionName(owner, repo);
+  const openai = getOpenAI();
 
   try {
     let needsIndex = forceReindex;
+    let commitCount = 0;
     
     if (!needsIndex) {
       const { data: commits } = await octokit.repos.listCommits({
@@ -164,6 +321,7 @@ router.post('/structure/analyze', async (req, res) => {
         per_page: 100
       });
       const lastAnalysis = await getLastAnalysis(owner, repo);
+      commitCount = commits.length;
       
       if (!lastAnalysis || commits.length > lastAnalysis.commitCount) {
         needsIndex = true;
@@ -228,40 +386,49 @@ router.post('/structure/analyze', async (req, res) => {
         repo,
         per_page: 1000
       });
-      setLastAnalysis(owner, repo, finalCommits.length);
+      commitCount = finalCommits.length;
     }
 
-    const vectorstore = await Chroma.fromExistingCollection(getEmbeddings(), {
-      collectionName,
-      host: 'localhost',
-      port: 8000
-    });
+    let codeContext = '';
+    let analysis = {
+      cyclomaticComplexity: 3.5,
+      codeSmells: [],
+      coreArchitecture: [],
+      dataFlow: [],
+      uiComponents: []
+    };
 
-    const [componentsResult, servicesResult, hooksResult, utilsResult] = await Promise.all([
-      vectorstore.similaritySearch('React components, pages, layouts, UI elements with imports exports', 30),
-      vectorstore.similaritySearch('services, API calls, data fetching, business logic', 20),
-      vectorstore.similaritySearch('hooks, useState, useEffect, custom hooks', 15),
-      vectorstore.similaritySearch('utils, helpers, constants, configuration, types, interfaces', 15)
-    ]);
+    try {
+      const vectorstore = await Chroma.fromExistingCollection(getEmbeddings(), {
+        collectionName,
+        host: 'localhost',
+        port: 8000
+      });
 
-    const allFiles = new Map();
-    [...componentsResult, ...servicesResult, ...hooksResult, ...utilsResult].forEach(r => {
-      if (!allFiles.has(r.metadata.path)) {
-        allFiles.set(r.metadata.path, r.pageContent.slice(0, 1500));
-      }
-    });
+      const [componentsResult, servicesResult, hooksResult, utilsResult] = await Promise.all([
+        vectorstore.similaritySearch('React components, pages, layouts, UI elements with imports exports', 30),
+        vectorstore.similaritySearch('services, API calls, data fetching, business logic', 20),
+        vectorstore.similaritySearch('hooks, useState, useEffect, custom hooks', 15),
+        vectorstore.similaritySearch('utils, helpers, constants, configuration, types, interfaces', 15)
+      ]);
 
-    const codeContext = Array.from(allFiles.entries())
-      .map(([path, content]) => `File: ${path}\n${content}`)
-      .join('\n\n---\n\n');
+      const allFiles = new Map();
+      [...componentsResult, ...servicesResult, ...hooksResult, ...utilsResult].forEach(r => {
+        if (!allFiles.has(r.metadata.path)) {
+          allFiles.set(r.metadata.path, r.pageContent.slice(0, 1500));
+        }
+      });
 
-    const openai = getOpenAI();
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        {
-          role: 'system',
-          content: `You are explaining a codebase to a NON-TECHNICAL project manager. Create a visualization of how the application is structured.
+      codeContext = Array.from(allFiles.entries())
+        .map(([path, content]) => `File: ${path}\n${content}`)
+        .join('\n\n---\n\n');
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: `You are explaining a codebase to a NON-TECHNICAL project manager. Create a visualization of how the application is structured.
 
 CRITICAL RULES:
 - NO file extensions (no .tsx, .js, .html, etc.)
@@ -308,33 +475,76 @@ STRUCTURE TO RETURN:
 Example node: {id: "dashboard", label: "Dashboard", type: "component", parentId: "main-layout", children: ["charts", "recent-activity"]}
 
 Return ONLY valid JSON. Minimum 15 nodes total across all views.`
+          },
+          {
+            role: 'user',
+            content: `Analyze and explain this codebase structure for a project manager:\n\n${codeContext}`
+          }
+        ]
+      });
+
+      try {
+        const rawResponse = completion.choices[0].message.content;
+        console.log('AI response preview:', rawResponse.slice(0, 200));
+        analysis = safeJsonParse(rawResponse) || analysis;
+      } catch (e) {
+        console.error('Failed to parse AI response:', e);
+      }
+    } catch (chromaError) {
+      console.error('ChromaDB retrieval failed:', chromaError);
+    }
+
+    const { data: recentCommits } = await octokit.repos.listCommits({
+      owner,
+      repo,
+      per_page: 10
+    });
+
+    const recentCommitsContext = recentCommits.map(c => ({
+      sha: c.sha.substring(0, 7),
+      message: c.commit.message.split('\n')[0],
+      author: c.commit.author.name,
+      date: c.commit.author.date
+    }));
+
+    const overviewCompletion = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a project analyst. Analyze the provided information and return a JSON object with exactly these fields:
+
+1. "description": A concise 1-2 sentence description of what this project does based on the codebase structure. Make it accessible to non-technical stakeholders.
+
+2. "recentHistory": A brief paragraph summarizing what has been worked on recently (last 5-10 commits). Focus on what features were added, bugs were fixed, or major changes were made.
+
+3. "direction": Based on the recent commit history and patterns, describe the current trajectory of the project. Is it in active development? Maintenance mode? New feature development? Refactoring? Be specific.
+
+Return ONLY valid JSON with these three fields, nothing else.`
         },
         {
           role: 'user',
-          content: `Analyze and explain this codebase structure for a project manager:\n\n${codeContext}`
+          content: `Recent commits:\n${JSON.stringify(recentCommitsContext, null, 2)}`
         }
       ]
     });
 
-    let analysis;
+    let overviewData = { description: null, recentHistory: null, direction: null };
     try {
-      analysis = JSON.parse(completion.choices[0].message.content.replace(/```json\n?/g, '').replace(/```\n?/g, ''));
+      const rawOverview = overviewCompletion.choices[0].message.content;
+      console.log('Overview AI response:', rawOverview.slice(0, 300));
+      overviewData = safeJsonParse(rawOverview) || overviewData;
+      console.log('Parsed overview data:', overviewData);
     } catch (e) {
-      console.error('Failed to parse AI response:', e);
-      analysis = {
-        cyclomaticComplexity: 3.5,
-        codeSmells: [],
-        coreArchitecture: [],
-        dataFlow: [],
-        uiComponents: []
-      };
+      console.error('Failed to parse overview response:', e);
     }
 
-    await setLastAnalysis(owner, repo, finalCommits.length, finalCommits[0]?.sha);
+    await setLastAnalysis(owner, repo, commitCount, recentCommits[0]?.sha, overviewData);
     await setAnalysisData(owner, repo, analysis);
 
-    res.json(analysis);
+    res.json({ ...analysis, ...overviewData });
   } catch (error) {
+    console.error('Analyze endpoint error:', error);
     res.status(500).json({ error: error.message });
   }
 });
