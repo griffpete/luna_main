@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Layers, FileCode2, Package, GitBranch, ShieldAlert, Network, Workflow, Layout as LayoutIcon, ChevronDown } from "lucide-react";
+import { useState, useEffect } from "react";
+import { FileCode2, Package, GitBranch, ShieldAlert, Network, Workflow, Layout as LayoutIcon, ChevronDown, Loader2 } from "lucide-react";
+import { useRepo } from "../context/RepoContext";
 
 type NodeType = "core" | "hook" | "component" | "util" | "service" | "store";
 
@@ -16,85 +17,163 @@ interface Edge {
   target: string;
 }
 
-const VIEWS = {
-  core: {
-    id: "core",
-    name: "Core Architecture",
-    icon: Network,
-    nodes: [
-      { id: "app", label: "App.tsx", x: 50, y: 15, type: "core" },
-      { id: "auth", label: "useAuth.ts", x: 25, y: 35, type: "hook" },
-      { id: "layout", label: "Layout.tsx", x: 50, y: 40, type: "component" },
-      { id: "api", label: "api.ts", x: 75, y: 35, type: "util" },
-      { id: "dash", label: "Dashboard.tsx", x: 20, y: 70, type: "component" },
-      { id: "struct", label: "Structure.tsx", x: 50, y: 70, type: "component" },
-      { id: "chat", label: "Chat.tsx", x: 80, y: 70, type: "component" },
-      { id: "db", label: "database.ts", x: 85, y: 15, type: "util" },
-    ] as Node[],
-    edges: [
-      { source: "app", target: "layout" },
-      { source: "app", target: "auth" },
-      { source: "app", target: "api" },
-      { source: "layout", target: "dash" },
-      { source: "layout", target: "struct" },
-      { source: "layout", target: "chat" },
-      { source: "auth", target: "api" },
-      { source: "dash", target: "api" },
-      { source: "chat", target: "api" },
-      { source: "api", target: "db" },
-    ] as Edge[],
-  },
-  dataFlow: {
-    id: "dataFlow",
-    name: "Data Flow",
-    icon: Workflow,
-    nodes: [
-      { id: "clientState", label: "Client State", x: 20, y: 50, type: "core" },
-      { id: "redux", label: "Redux Store", x: 50, y: 20, type: "store" },
-      { id: "gateway", label: "API Gateway", x: 50, y: 50, type: "util" },
-      { id: "authSvc", label: "Auth Service", x: 80, y: 20, type: "service" },
-      { id: "cache", label: "Redis Cache", x: 50, y: 80, type: "store" },
-      { id: "dbPrimary", label: "Primary DB", x: 80, y: 80, type: "service" },
-    ] as Node[],
-    edges: [
-      { source: "clientState", target: "redux" },
-      { source: "clientState", target: "gateway" },
-      { source: "redux", target: "gateway" },
-      { source: "gateway", target: "authSvc" },
-      { source: "gateway", target: "cache" },
-      { source: "gateway", target: "dbPrimary" },
-      { source: "authSvc", target: "dbPrimary" },
-      { source: "cache", target: "dbPrimary" },
-    ] as Edge[],
-  },
-  uiComponents: {
-    id: "uiComponents",
-    name: "UI Components",
-    icon: LayoutIcon,
-    nodes: [
-      { id: "mainLayout", label: "MainLayout", x: 50, y: 15, type: "component" },
-      { id: "sidebar", label: "Sidebar", x: 25, y: 40, type: "component" },
-      { id: "topbar", label: "TopHeader", x: 75, y: 40, type: "component" },
-      { id: "navItem", label: "NavItem", x: 25, y: 70, type: "component" },
-      { id: "userMenu", label: "UserMenu", x: 60, y: 70, type: "component" },
-      { id: "themeBtn", label: "ThemeToggle", x: 90, y: 70, type: "component" },
-    ] as Node[],
-    edges: [
-      { source: "mainLayout", target: "sidebar" },
-      { source: "mainLayout", target: "topbar" },
-      { source: "sidebar", target: "navItem" },
-      { source: "topbar", target: "userMenu" },
-      { source: "topbar", target: "themeBtn" },
-    ] as Edge[],
-  }
+interface ViewData {
+  id: string;
+  name: string;
+  icon: typeof Network;
+  nodes: Node[];
+  edges: Edge[];
+}
+
+interface OverviewData {
+  totalFiles: number;
+  codeFiles: number;
+  dependencyFiles: number;
+  topLanguages: { language: string; count: number }[];
+}
+
+interface AnalysisData {
+  cyclomaticComplexity: number;
+  codeSmells: { type: string; file: string; description: string; severity: string }[];
+  coreArchitecture: { id: string; label: string; type: NodeType; dependencies: string[] }[];
+  dataFlow: { id: string; label: string; type: NodeType; connections: string[] }[];
+  uiComponents: { id: string; label: string; parentId?: string; children: string[] }[];
+}
+
+const generateNodePositions = (nodes: { id: string; label: string; type: NodeType }[]): Node[] => {
+  const cols = 4;
+  return nodes.map((node, idx) => ({
+    ...node,
+    x: 15 + (idx % cols) * 25,
+    y: 20 + Math.floor(idx / cols) * 30
+  }));
+};
+
+const VIEWS: Record<string, ViewData> = {
+  core: { id: "core", name: "Core Architecture", icon: Network, nodes: [], edges: [] },
+  dataFlow: { id: "dataFlow", name: "Data Flow", icon: Workflow, nodes: [], edges: [] },
+  uiComponents: { id: "uiComponents", name: "UI Components", icon: LayoutIcon, nodes: [], edges: [] }
 };
 
 type ScopeType = "All" | "Server" | "Client" | "Other";
 
 export function Structure() {
+  const { owner, repo, apiBase } = useRepo();
   const [activeViewId, setActiveViewId] = useState<keyof typeof VIEWS>("core");
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [scope, setScope] = useState<ScopeType>("All");
+  const [loading, setLoading] = useState(true);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [overview, setOverview] = useState<OverviewData | null>(null);
+  const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
+  const [hasAnalyzed, setHasAnalyzed] = useState(false);
+
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const overviewRes = await fetch(`${apiBase}/structure/overview?owner=${owner}&repo=${repo}`);
+        const overviewData = await overviewRes.json();
+        setOverview(overviewData);
+
+        const statusRes = await fetch(`${apiBase}/structure/status?owner=${owner}&repo=${repo}`);
+        const statusData = await statusRes.json();
+
+        if (!statusData.needsAnalysis && statusData.lastAnalysis) {
+          const analysisRes = await fetch(`${apiBase}/structure/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ owner, repo, forceReindex: false })
+          });
+          const analysisData = await analysisRes.json();
+          setAnalysis(analysisData);
+          setHasAnalyzed(true);
+          processAnalysisData(analysisData);
+        }
+      } catch (err) {
+        console.error('Failed to fetch structure data:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, [owner, repo, apiBase]);
+
+  function processAnalysisData(analysisData: AnalysisData) {
+    if (analysisData.coreArchitecture) {
+      const coreNodes = analysisData.coreArchitecture.map((c: any) => ({
+        id: c.id,
+        label: c.label,
+        type: c.type as NodeType
+      }));
+      VIEWS.core.nodes = generateNodePositions(coreNodes);
+      VIEWS.core.edges = analysisData.coreArchitecture.flatMap((c: any) =>
+        (c.dependencies || []).map((dep: string) => ({ source: c.id, target: dep }))
+      ).filter((e: Edge) => 
+        coreNodes.some(n => n.id === e.target) || 
+        coreNodes.some(n => n.id === e.source)
+      );
+    }
+
+    if (analysisData.dataFlow) {
+      const flowNodes = analysisData.dataFlow.map((d: any) => ({
+        id: d.id,
+        label: d.label,
+        type: d.type as NodeType
+      }));
+      VIEWS.dataFlow.nodes = generateNodePositions(flowNodes);
+      VIEWS.dataFlow.edges = analysisData.dataFlow.flatMap((d: any) =>
+        (d.connections || []).map((conn: string) => ({ source: d.id, target: conn }))
+      ).filter((e: Edge) => 
+        flowNodes.some(n => n.id === e.target) || 
+        flowNodes.some(n => n.id === e.source)
+      );
+    }
+
+    if (analysisData.uiComponents) {
+      const uiNodes = analysisData.uiComponents.map((u: any) => ({
+        id: u.id,
+        label: u.label,
+        type: "component" as NodeType
+      }));
+      VIEWS.uiComponents.nodes = generateNodePositions(uiNodes);
+      VIEWS.uiComponents.edges = analysisData.uiComponents.flatMap((u: any) => {
+        const edges: Edge[] = [];
+        if (u.children) {
+          u.children.forEach((child: string) => {
+            edges.push({ source: u.id, target: child });
+          });
+        }
+        if (u.parentId) {
+          edges.push({ source: u.parentId, target: u.id });
+        }
+        return edges;
+      }).filter((e: Edge) => 
+        uiNodes.some(n => n.id === e.target) || 
+        uiNodes.some(n => n.id === e.source)
+      );
+    }
+  }
+
+  const handleAnalyze = async () => {
+    setAnalyzing(true);
+    try {
+      const res = await fetch(`${apiBase}/structure/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ owner, repo, forceReindex: true })
+      });
+      const data = await res.json();
+      setAnalysis(data);
+      setHasAnalyzed(true);
+      processAnalysisData(data);
+    } catch (err) {
+      console.error('Analysis failed:', err);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   const currentView = VIEWS[activeViewId];
 
@@ -150,24 +229,20 @@ export function Structure() {
             </select>
             <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none group-hover:text-slate-300 transition-colors" />
           </div>
-          <button className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-[0_0_15px_rgba(99,102,241,0.3)]">
-            <Layers className="w-4 h-4" />
-            Analyze Branch
-          </button>
         </div>
       </div>
 
       {/* Top Metrics Row */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {[
-          { label: "Total Files", value: "1,248", icon: FileCode2, color: "text-blue-400", bg: "bg-blue-500/10" },
-          { label: "Dependencies", value: "86", icon: Package, color: "text-amber-400", bg: "bg-amber-500/10" },
-          { label: "Cyclomatic Complexity", value: "Avg 4.2", icon: GitBranch, color: "text-purple-400", bg: "bg-purple-500/10" },
-          { label: "Code Smells", value: "24", icon: ShieldAlert, color: "text-rose-400", bg: "bg-rose-500/10" },
+          { label: "Total Files", value: loading ? '—' : (overview?.totalFiles?.toLocaleString() || '—'), icon: FileCode2, color: "text-blue-400", bg: "bg-blue-500/10" },
+          { label: "Code Files", value: loading ? '—' : (overview?.codeFiles?.toLocaleString() || '—'), icon: Package, color: "text-amber-400", bg: "bg-amber-500/10" },
+          { label: "Cyclomatic Complexity", value: analyzing || !analysis ? '—' : `Avg ${analysis?.cyclomaticComplexity?.toFixed(1) || '—'}`, icon: GitBranch, color: "text-purple-400", bg: "bg-purple-500/10" },
+          { label: "Code Smells", value: analyzing || !analysis ? '—' : (analysis?.codeSmells?.length || 0).toString(), icon: ShieldAlert, color: "text-rose-400", bg: "bg-rose-500/10" },
         ].map((metric, idx) => (
           <div key={idx} className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex items-center gap-4 hover:border-slate-700 transition-colors">
             <div className={`p-3 rounded-lg ${metric.bg} ${metric.color}`}>
-              <metric.icon className="w-6 h-6" />
+              {loading || analyzing ? <Loader2 className="w-6 h-6 animate-spin" /> : <metric.icon className="w-6 h-6" />}
             </div>
             <div>
               <p className="text-sm text-slate-400 font-medium">{metric.label}</p>
@@ -176,6 +251,20 @@ export function Structure() {
           </div>
         ))}
       </div>
+
+      {/* Languages Row */}
+      {!loading && overview?.topLanguages && overview.topLanguages.length > 0 && (
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-slate-400 font-medium">Languages:</span>
+          <div className="flex flex-wrap gap-2">
+            {overview.topLanguages.map((lang, idx) => (
+              <span key={idx} className="px-3 py-1 bg-slate-800 border border-slate-700 rounded-full text-xs text-slate-300">
+                {lang.language} <span className="text-slate-500">{lang.count}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Main Focus: Interactive Component Mind Map */}
       <div className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-6 flex flex-col relative min-h-[600px] overflow-hidden">
@@ -218,10 +307,17 @@ export function Structure() {
         {/* Graph Area */}
         <div className="flex-1 relative mt-2 border border-slate-800/50 bg-slate-950/40 rounded-lg overflow-hidden w-full h-full">
           
-          {filteredNodes.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center text-slate-500 flex-col gap-2">
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center text-slate-500 flex-col gap-3 z-20">
+              <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
+              <p>Loading...</p>
+            </div>
+          )}
+
+          {!loading && !hasAnalyzed && (
+            <div className="absolute inset-0 flex items-center justify-center text-slate-500 flex-col gap-3 z-20">
               <ShieldAlert className="w-8 h-8 opacity-50" />
-              <p>No nodes found for this scope.</p>
+              <p>Click "Analyze Branch" in the header to start analysis</p>
             </div>
           )}
 

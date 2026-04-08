@@ -1,5 +1,5 @@
 import { Outlet, NavLink } from "react-router";
-import { Activity, LayoutDashboard, MessageSquare, Moon, Code2, Settings, ChevronDown, Loader2 } from "lucide-react";
+import { Activity, LayoutDashboard, MessageSquare, Moon, Code2, Settings, ChevronDown, Loader2, Layers } from "lucide-react";
 import { useRepo } from "../context/RepoContext";
 import { useState, useEffect, useRef } from "react";
 
@@ -16,23 +16,40 @@ export function Layout() {
   const [repos, setRepos] = useState<Repo[]>([]);
   const [loadingRepos, setLoadingRepos] = useState(true);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [isIndexing, setIsIndexing] = useState(false);
+  const [needsAnalysis, setNeedsAnalysis] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const indexRepo = async (targetOwner: string, targetRepo: string) => {
-    setIsIndexing(true);
+  const checkAnalysisStatus = async (targetOwner: string, targetRepo: string) => {
     try {
-      await fetch(`${apiBase}/index`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ owner: targetOwner, repo: targetRepo })
-      });
+      const res = await fetch(`${apiBase}/structure/status?owner=${targetOwner}&repo=${targetRepo}`);
+      const data = await res.json();
+      setNeedsAnalysis(data.needsAnalysis);
     } catch (err) {
-      console.error('Indexing failed:', err);
-    } finally {
-      setIsIndexing(false);
+      console.error('Failed to check analysis status:', err);
     }
   };
+
+  const handleAnalyze = async () => {
+    setIsAnalyzing(true);
+    try {
+      await fetch(`${apiBase}/structure/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ owner, repo })
+      });
+      setNeedsAnalysis(false);
+      window.location.reload();
+    } catch (err) {
+      console.error('Analysis failed:', err);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  useEffect(() => {
+    checkAnalysisStatus(owner, repo);
+  }, [owner, repo, apiBase]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -63,7 +80,6 @@ export function Layout() {
     const [newOwner, newName] = selectedRepo.fullName.split('/');
     setRepo(newOwner, newName);
     setShowDropdown(false);
-    indexRepo(newOwner, newName);
   };
 
   const navItems = [
@@ -169,10 +185,20 @@ export function Layout() {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {needsAnalysis && (
+              <button
+                onClick={handleAnalyze}
+                disabled={isAnalyzing}
+                className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Layers className="w-4 h-4" />}
+                {isAnalyzing ? 'Analyzing...' : 'Analyze Branch'}
+              </button>
+            )}
             <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${isIndexing ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)] animate-pulse' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'}`}></div>
-              <span className="text-sm text-slate-300">{isIndexing ? 'Syncing...' : 'Synced'}</span>
+              <div className={`w-2 h-2 rounded-full ${needsAnalysis ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'}`}></div>
+              <span className="text-sm text-slate-300">{needsAnalysis ? 'Needs Update' : 'Synced'}</span>
             </div>
           </div>
         </header>
