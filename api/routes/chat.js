@@ -123,10 +123,14 @@ router.post('/index', async (req, res) => {
 });
 
 router.post('/chat', async (req, res) => {
-  const { owner, repo, question } = req.body;
+  const { owner, repo, question, mode = 'basic' } = req.body;
   if (!owner || !repo || !question) return res.status(400).json({ error: 'owner, repo and question are required' });
 
   const collectionName = getCollectionName(owner, repo);
+
+  const systemPrompt = mode === 'expert' 
+    ? 'You are an expert software engineer analyzing a code repository. CRITICAL: ALWAYS use markdown code blocks when showing code snippets from the context or writing examples. Structure responses with headers (##), lists, and bold text. Provide detailed technical explanations with precise terminology. When referencing code, ALWAYS include the relevant snippet in a code block. Explain architectural decisions, implementation patterns, and technical trade-offs.'
+    : 'You are a helpful assistant explaining code to non-technical users. Use simple, everyday language and avoid jargon. Create analogies and metaphors to make complex concepts understandable. Focus on WHAT the code does rather than HOW it works technically. Be friendly and patient in your explanations.';
 
   try {
     const vectorstore = await Chroma.fromExistingCollection(getEmbeddings(), {
@@ -139,16 +143,17 @@ router.post('/chat', async (req, res) => {
     const context = results.map(r => `File: ${r.metadata.path}\n${r.pageContent}`).join('\n\n---\n\n');
 
     const completion = await getOpenAI().chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-3.5-turbo',
       messages: [
-        { role: 'system', content: `You are a helpful assistant that answers questions about a code repository. Use the provided code context to answer. If the answer isn't in the context, say so.` },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: `Context:\n${context}\n\nQuestion: ${question}` }
       ]
     });
 
     res.json({
       answer: completion.choices[0].message.content,
-      sources: results.map(r => r.metadata.path)
+      sources: results.map(r => r.metadata.path),
+      mode
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

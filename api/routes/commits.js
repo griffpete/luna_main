@@ -43,7 +43,7 @@ router.post('/commit', async (req, res) => {
     }));
 
     const completion = await getOpenAI().chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-3.5-turbo",
       messages: [
         {
           role: "user",

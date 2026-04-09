@@ -34,6 +34,36 @@ function safeJsonParse(text) {
   }
 }
 
+function getTechnicalLevelPrompt(level = 'medium') {
+  const prompts = {
+    low: `You are explaining code to a non-technical audience. Use simple, everyday language. Avoid jargon and technical terms. Create analogies and metaphors to explain concepts. Focus on WHAT the code does rather than HOW it works technically. Be concise and friendly.`,
+    medium: `You are explaining code to a general audience with some technical familiarity. Use clear language and briefly explain technical terms when they appear. Balance simplicity with accuracy. Be informative but accessible.`,
+    high: `You are explaining code to a technical audience. Use precise terminology, reference specific patterns and implementations, discuss architectural decisions, and provide detailed technical explanations. Include relevant code examples when helpful.`
+  };
+  return prompts[level] || prompts.medium;
+}
+
+function getOverviewPrompt(level = 'medium') {
+  const technicalContext = getTechnicalLevelPrompt(level);
+  return `${technicalContext}
+
+Return a JSON object with exactly these fields:
+
+1. "description": A concise 1-2 sentence description of what this project does.
+
+2. "recentHistory": 3-5 SEPARATE lines of plain text (NO quotes, NO brackets) about what was worked on recently. Each line must be ONE COMPLETE SENTENCE ending with a period. Example:
+Added new authentication feature.
+Fixed memory leak in data processor.
+Updated API client to support new endpoints.
+
+3. "direction": 3-5 SEPARATE lines of plain text (NO quotes, NO brackets) about the project's trajectory. Each line must be ONE COMPLETE SENTENCE ending with a period. Example:
+Active development on mobile support.
+Performance optimization is a current focus.
+Planning major release for next quarter.
+
+Return ONLY valid JSON with these three fields, nothing else.`;
+}
+
 router.get('/structure/overview', async (req, res) => {
   const { owner, repo } = req.query;
   if (!owner || !repo) return res.status(400).json({ error: 'owner and repo are required' });
@@ -228,7 +258,7 @@ router.get('/structure/overview', async (req, res) => {
 });
 
 router.post('/structure/refresh-overview', async (req, res) => {
-  const { owner, repo } = req.body;
+  const { owner, repo, technicalLevel = 'medium' } = req.body;
   if (!owner || !repo) return res.status(400).json({ error: 'owner and repo are required' });
 
   try {
@@ -262,19 +292,11 @@ router.post('/structure/refresh-overview', async (req, res) => {
 
     const openai = getOpenAI();
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-3.5-turbo',
       messages: [
         {
           role: 'system',
-          content: `You are a project analyst. Analyze the provided information and return a JSON object with exactly these fields:
-
-1. "description": A concise 1-2 sentence description of what this project does based on the codebase structure and commit history. Make it accessible to non-technical stakeholders.
-
-2. "recentHistory": A brief paragraph summarizing what has been worked on recently (last 5-10 commits). Focus on what features were added, bugs were fixed, or major changes were made.
-
-3. "direction": Based on the recent commit history and patterns, describe the current trajectory of the project. Is it in active development? Maintenance mode? New feature development? Refactoring? Be specific.
-
-Return ONLY valid JSON with these three fields, nothing else.`
+          content: getOverviewPrompt(technicalLevel)
         },
         {
           role: 'user',
@@ -304,7 +326,7 @@ Return ONLY valid JSON with these three fields, nothing else.`
 });
 
 router.post('/structure/analyze', async (req, res) => {
-  const { owner, repo, forceReindex = false } = req.body;
+  const { owner, repo, forceReindex = false, technicalLevel = 'medium' } = req.body;
   if (!owner || !repo) return res.status(400).json({ error: 'owner and repo are required' });
 
   const collectionName = getCollectionName(owner, repo);
@@ -424,7 +446,7 @@ router.post('/structure/analyze', async (req, res) => {
         .join('\n\n---\n\n');
 
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-3.5-turbo',
         messages: [
           {
             role: 'system',
@@ -508,19 +530,11 @@ Return ONLY valid JSON. Minimum 15 nodes total across all views.`
     }));
 
     const overviewCompletion = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-3.5-turbo',
       messages: [
         {
           role: 'system',
-          content: `You are a project analyst. Analyze the provided information and return a JSON object with exactly these fields:
-
-1. "description": A concise 1-2 sentence description of what this project does based on the codebase structure. Make it accessible to non-technical stakeholders.
-
-2. "recentHistory": A brief paragraph summarizing what has been worked on recently (last 5-10 commits). Focus on what features were added, bugs were fixed, or major changes were made.
-
-3. "direction": Based on the recent commit history and patterns, describe the current trajectory of the project. Is it in active development? Maintenance mode? New feature development? Refactoring? Be specific.
-
-Return ONLY valid JSON with these three fields, nothing else.`
+          content: getOverviewPrompt(technicalLevel)
         },
         {
           role: 'user',

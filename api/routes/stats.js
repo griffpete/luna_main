@@ -119,42 +119,64 @@ router.get('/contributors', async (req, res) => {
 });
 
 router.get('/activity', async (req, res) => {
-  const { owner, repo, months = 6 } = req.query;
+  const { owner, repo, days = 30 } = req.query;
   if (!owner || !repo) return res.status(400).json({ error: 'owner and repo are required' });
   if (!process.env.GITHUB_TOKEN) return res.status(500).json({ error: 'GITHUB_TOKEN not configured', activity: [] });
 
-  try {
-    const monthsAgo = new Date();
-    monthsAgo.setMonth(monthsAgo.getMonth() - parseInt(months));
+  const numDays = parseInt(days);
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - numDays);
 
+  try {
     const { data: commits } = await octokit.repos.listCommits({
       owner,
       repo,
-      since: monthsAgo.toISOString(),
+      since: cutoffDate.toISOString(),
       per_page: 500
     });
 
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const monthlyData = {};
+    const activityData = {};
 
-    for (let i = 0; i < parseInt(months); i++) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
-      const key = monthNames[d.getMonth()];
-      monthlyData[key] = { name: key, commits: 0, additions: 0, deletions: 0 };
+    if (numDays <= 30) {
+      for (let i = numDays - 1; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = `${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}`;
+        activityData[key] = { name: key, commits: 0, additions: 0, deletions: 0 };
+      }
+
+      commits.forEach(commit => {
+        const date = new Date(commit.commit.author.date);
+        const key = `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}`;
+        if (activityData[key]) {
+          activityData[key].commits++;
+          activityData[key].additions += commit.stats?.additions || 0;
+          activityData[key].deletions += commit.stats?.deletions || 0;
+        }
+      });
+    } else {
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const monthsNeeded = Math.ceil(numDays / 30);
+
+      for (let i = monthsNeeded - 1; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        const key = monthNames[d.getMonth()];
+        activityData[key] = { name: key, commits: 0, additions: 0, deletions: 0 };
+      }
+
+      commits.forEach(commit => {
+        const date = new Date(commit.commit.author.date);
+        const key = monthNames[date.getMonth()];
+        if (activityData[key]) {
+          activityData[key].commits++;
+          activityData[key].additions += commit.stats?.additions || 0;
+          activityData[key].deletions += commit.stats?.deletions || 0;
+        }
+      });
     }
 
-    commits.forEach(commit => {
-      const date = new Date(commit.commit.author.date);
-      const key = monthNames[date.getMonth()];
-      if (monthlyData[key]) {
-        monthlyData[key].commits++;
-        monthlyData[key].additions += commit.stats?.additions || 0;
-        monthlyData[key].deletions += commit.stats?.deletions || 0;
-      }
-    });
-
-    res.json({ activity: Object.values(monthlyData).reverse() });
+    res.json({ activity: Object.values(activityData) });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

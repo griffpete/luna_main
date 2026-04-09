@@ -79,19 +79,41 @@ export function Dashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
               <Activity className="w-5 h-5 text-indigo-400" />
               Recent Activity
             </h3>
-            <p className="text-slate-300 text-sm leading-relaxed">{recentHistory || 'Click the refresh button to generate recent activity summary.'}</p>
+            {recentHistory ? (
+              <ul className="space-y-2 text-sm text-slate-300">
+                {recentHistory.split(/[\n]|","|","/).filter(s => s.trim()).slice(0, 5).map((point, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-indigo-400 mt-1">•</span>
+                    <span>{point.replace(/^[-"'\[\]• ]+/, '').replace(/["'\[\]]+$/, '').trim()}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-slate-500 text-sm">Click the refresh button to generate recent activity summary.</p>
+            )}
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
               <Activity className="w-5 h-5 text-emerald-400" />
               Project Trajectory
             </h3>
-            <p className="text-slate-300 text-sm leading-relaxed">{direction || 'Click the refresh button to generate project trajectory.'}</p>
+            {direction ? (
+              <ul className="space-y-2 text-sm text-slate-300">
+                {direction.split(/[\n]|","|","/).filter(s => s.trim()).slice(0, 5).map((point, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-emerald-400 mt-1">•</span>
+                    <span>{point.replace(/^[-"'\[\]• ]+/, '').replace(/["'\[\]]+$/, '').trim()}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-slate-500 text-sm">Click the refresh button to generate project trajectory.</p>
+            )}
           </div>
         </div>
       </div>

@@ -1,21 +1,24 @@
 import { useState } from "react";
-import { Bell, Shield, GitBranch, Sparkles, Database, Eye, Activity, SlidersHorizontal } from "lucide-react";
+import { Sun, Moon, Type, Sparkles, Settings2, ChevronDown } from "lucide-react";
+import { useSettings } from "../context/SettingsContext";
+
+const aiModels = [
+  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo', description: 'Fastest and cheapest. Great for simple summaries and basic explanations.' },
+  { value: 'gpt-4o-mini', label: 'GPT-4o Mini', description: 'Balanced speed and intelligence. Good for most AI tasks.' },
+  { value: 'gpt-4o', label: 'GPT-4o', description: 'Most capable. Best for complex analysis and detailed explanations.' },
+  { value: 'gpt-4', label: 'GPT-4', description: 'Original GPT-4. Powerful but slower and more expensive.' },
+];
+
+const technicalLevels = [
+  { value: 'low', label: 'Low', description: 'Simple explanations with everyday language, analogies, and metaphors.' },
+  { value: 'medium', label: 'Medium', description: 'Balanced explanations with some technical terms explained.' },
+  { value: 'high', label: 'High', description: 'Full technical depth with precise terminology and code references.' },
+];
 
 export function Settings() {
-  const [settings, setSettings] = useState({
-    autoSync: true,
-    backgroundAnalysis: true,
-    aiSuggestions: true,
-    showCodeSmells: true,
-    emailAlerts: false,
-    publicDashboard: false,
-    highContrast: false,
-    experimentalFeatures: false,
-  });
-
-  const toggleSetting = (key: keyof typeof settings) => {
-    setSettings(prev => ({ ...prev, [key]: !prev[key] }));
-  };
+  const { settings, updateSettings } = useSettings();
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const [levelDropdownOpen, setLevelDropdownOpen] = useState(false);
 
   const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
     <button
@@ -36,85 +39,161 @@ export function Settings() {
     </button>
   );
 
-  const sections = [
-    {
-      title: "Repository Analysis",
-      icon: Activity,
-      items: [
-        { id: "autoSync", label: "Auto-sync Repository", description: "Automatically fetch and analyze new commits on the main branch.", icon: GitBranch },
-        { id: "backgroundAnalysis", label: "Background Deep Analysis", description: "Run complex cyclomatic complexity checks in the background.", icon: Database },
-      ]
-    },
-    {
-      title: "Luna AI Preferences",
-      icon: Sparkles,
-      items: [
-        { id: "aiSuggestions", label: "Enable AI Code Suggestions", description: "Allow Luna to suggest refactoring improvements in the chat.", icon: Sparkles },
-        { id: "showCodeSmells", label: "Highlight Code Smells", description: "Visually indicate potential issues in the codebase structure map.", icon: Eye },
-      ]
-    },
-    {
-      title: "Notifications & Privacy",
-      icon: Shield,
-      items: [
-        { id: "emailAlerts", label: "Email Alerts for Critical Issues", description: "Get notified when a commit introduces significant technical debt.", icon: Bell },
-        { id: "publicDashboard", label: "Public Dashboard Link", description: "Allow anyone with the link to view this repository's insights.", icon: Shield },
-      ]
-    },
-    {
-      title: "Appearance & Accessibility",
-      icon: SlidersHorizontal,
-      items: [
-        { id: "highContrast", label: "High Contrast Mode", description: "Increase contrast for better readability of graphs and metrics.", icon: Eye },
-        { id: "experimentalFeatures", label: "Enable Experimental Features", description: "Get early access to beta visualizers and AI models.", icon: SlidersHorizontal },
-      ]
-    }
-  ];
+  const Dropdown = ({ 
+    value, 
+    options, 
+    onChange, 
+    isOpen, 
+    setIsOpen 
+  }: { 
+    value: string; 
+    options: { value: string; label: string; description: string }[]; 
+    onChange: (val: string) => void; 
+    isOpen: boolean; 
+    setIsOpen: (open: boolean) => void;
+  }) => (
+    <div className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center justify-between w-64 px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-200 hover:border-slate-600 transition-colors"
+      >
+        <span>{options.find(o => o.value === value)?.label}</span>
+        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen && (
+        <div className="absolute top-full left-0 mt-2 w-80 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => {
+                onChange(option.value);
+                setIsOpen(false);
+              }}
+              className={`w-full text-left px-4 py-3 hover:bg-slate-700 transition-colors ${
+                value === option.value ? 'bg-indigo-500/10' : ''
+              }`}
+            >
+              <div className="text-sm font-medium text-slate-200">{option.label}</div>
+              <div className="text-xs text-slate-400 mt-0.5">{option.description}</div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   return (
-    <div className="p-8 max-w-5xl mx-auto text-slate-100">
+    <div className="p-8 max-w-5xl mx-auto text-slate-100" onClick={() => {
+      setModelDropdownOpen(false);
+      setLevelDropdownOpen(false);
+    }}>
       <div className="mb-8">
         <h2 className="text-2xl font-bold tracking-tight">Settings</h2>
-        <p className="text-slate-400 mt-1">Manage your workspace preferences, AI configurations, and repository tracking.</p>
+        <p className="text-slate-400 mt-1">Customize your Luna experience.</p>
       </div>
 
       <div className="space-y-8">
-        {sections.map((section, idx) => (
-          <div key={idx} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/50 flex items-center gap-3">
-              <section.icon className="w-5 h-5 text-indigo-400" />
-              <h3 className="text-lg font-medium text-white">{section.title}</h3>
-            </div>
-            <div className="divide-y divide-slate-800/50">
-              {section.items.map((item) => (
-                <div key={item.id} className="p-6 flex items-center justify-between hover:bg-slate-800/20 transition-colors">
-                  <div className="flex items-start gap-4 pr-8">
-                    <div className="mt-1 bg-slate-800 p-2 rounded-lg text-slate-400">
-                      <item.icon className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-[15px] font-medium text-slate-200">{item.label}</h4>
-                      <p className="text-sm text-slate-400 mt-1">{item.description}</p>
-                    </div>
-                  </div>
-                  <Toggle 
-                    checked={settings[item.id as keyof typeof settings]} 
-                    onChange={() => toggleSetting(item.id as keyof typeof settings)} 
-                  />
+        {/* Appearance */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/50 flex items-center gap-3">
+            <Settings2 className="w-5 h-5 text-indigo-400" />
+            <h3 className="text-lg font-medium text-white">Appearance</h3>
+          </div>
+          <div className="divide-y divide-slate-800/50">
+            {/* Light Mode */}
+            <div className="p-6 flex items-center justify-between hover:bg-slate-800/20 transition-colors">
+              <div className="flex items-start gap-4">
+                <div className="mt-1 bg-slate-800 p-2 rounded-lg text-slate-400">
+                  {settings.lightMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                 </div>
-              ))}
+                <div>
+                  <h4 className="text-[15px] font-medium text-slate-200">Light Mode</h4>
+                  <p className="text-sm text-slate-400 mt-1">Switch to a warm white background with purple accents.</p>
+                </div>
+              </div>
+              <Toggle 
+                checked={settings.lightMode} 
+                onChange={() => updateSettings({ lightMode: !settings.lightMode })} 
+              />
+            </div>
+
+            {/* Larger Text */}
+            <div className="p-6 flex items-center justify-between hover:bg-slate-800/20 transition-colors">
+              <div className="flex items-start gap-4">
+                <div className="mt-1 bg-slate-800 p-2 rounded-lg text-slate-400">
+                  <Type className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-[15px] font-medium text-slate-200">Larger Text</h4>
+                  <p className="text-sm text-slate-400 mt-1">Increase all text sizes by 50% for better readability.</p>
+                </div>
+              </div>
+              <Toggle 
+                checked={settings.largerText} 
+                onChange={() => updateSettings({ largerText: !settings.largerText })} 
+              />
             </div>
           </div>
-        ))}
+        </div>
+
+        {/* AI Settings */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/50 flex items-center gap-3">
+            <Sparkles className="w-5 h-5 text-indigo-400" />
+            <h3 className="text-lg font-medium text-white">AI Settings</h3>
+          </div>
+          <div className="divide-y divide-slate-800/50">
+            {/* Model Selection */}
+            <div className="p-6 flex items-center justify-between hover:bg-slate-800/20 transition-colors" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-start gap-4">
+                <div className="mt-1 bg-slate-800 p-2 rounded-lg text-slate-400">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-[15px] font-medium text-slate-200">Model Selection</h4>
+                  <p className="text-sm text-slate-400 mt-1">Choose which OpenAI model to use for analysis.</p>
+                </div>
+              </div>
+              <Dropdown
+                value={settings.aiModel}
+                options={aiModels}
+                onChange={(val) => updateSettings({ aiModel: val as Settings['aiModel'] })}
+                isOpen={modelDropdownOpen}
+                setIsOpen={setModelDropdownOpen}
+              />
+            </div>
+
+            {/* Technical Level */}
+            <div className="p-6 flex items-center justify-between hover:bg-slate-800/20 transition-colors" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-start gap-4">
+                <div className="mt-1 bg-slate-800 p-2 rounded-lg text-slate-400">
+                  <Type className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-[15px] font-medium text-slate-200">Technical Level</h4>
+                  <p className="text-sm text-slate-400 mt-1">How technical should AI explanations be? (Excludes chat)</p>
+                </div>
+              </div>
+              <Dropdown
+                value={settings.technicalLevel}
+                options={technicalLevels}
+                onChange={(val) => updateSettings({ technicalLevel: val as Settings['technicalLevel'] })}
+                isOpen={levelDropdownOpen}
+                setIsOpen={setLevelDropdownOpen}
+              />
+            </div>
+          </div>
+        </div>
       </div>
       
-      <div className="mt-8 flex justify-end gap-4">
-        <button className="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition-colors">
+      <div className="mt-8 flex justify-between items-center">
+        <button 
+          onClick={() => updateSettings({ lightMode: false, largerText: false, aiModel: 'gpt-3.5-turbo', technicalLevel: 'medium' })}
+          className="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition-colors"
+        >
           Reset to Defaults
         </button>
-        <button className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shadow-sm">
-          Save Changes
-        </button>
+        <p className="text-xs text-slate-500">Settings are saved automatically</p>
       </div>
     </div>
   );

@@ -20,11 +20,9 @@ export function Data() {
     async function fetchData() {
       setLoading(true);
       try {
-        const months = timeRange === '7' ? 1 : timeRange === '30' ? 2 : 4;
-        
         const [statsRes, activityRes] = await Promise.all([
           fetch(`${apiBase}/stats?owner=${owner}&repo=${repo}`),
-          fetch(`${apiBase}/activity?owner=${owner}&repo=${repo}&months=${months}`)
+          fetch(`${apiBase}/activity?owner=${owner}&repo=${repo}&days=${timeRange}`)
         ]);
 
         const stats = await statsRes.json();

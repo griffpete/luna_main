@@ -1,6 +1,6 @@
 require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });
 const express = require('express');
-const { chatRoutes, commitRoutes, statsRoutes, structureRoutes } = require('./routes');
+const { chatRoutes, commitRoutes, statsRoutes, structureRoutes, favoritesRoutes } = require('./routes');
 
 const app = express();
 app.use(express.json());
@@ -16,6 +16,7 @@ app.use('/', chatRoutes);
 app.use('/', commitRoutes);
 app.use('/', statsRoutes);
 app.use('/', structureRoutes);
+app.use('/', favoritesRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

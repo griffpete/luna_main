@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Code, FileText, Loader2, Sparkles } from "lucide-react";
+import { Send, Bot, User, Code, FileText, Loader2, Sparkles, UserCircle, Brain } from "lucide-react";
 import { useRepo } from "../context/RepoContext";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 type Message = {
   id: string;
@@ -9,11 +11,13 @@ type Message = {
   timestamp: string;
   codeSnippet?: string;
   sources?: string[];
+  mode?: string;
 };
 
 export function Chat() {
   const { owner, repo, apiBase } = useRepo();
   const [messages, setMessages] = useState<Message[]>([]);
+  const [chatMode, setChatMode] = useState<'basic' | 'expert'>('basic');
 
   useEffect(() => {
     setMessages([{
@@ -28,7 +32,7 @@ export function Chat() {
     setMessages([{
       id: "welcome",
       role: "ai",
-      content: `Context cleared. I'm ready to start fresh with \`${owner}/${repo}\`. What would you like to know?`,
+      content: `Hi there! I'm Luna, your codebase AI assistant. I've analyzed \`${owner}/${repo}\` and I'm ready to answer any questions about the architecture, dependencies, or specific functions.`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     }]);
   };
@@ -63,7 +67,8 @@ export function Chat() {
         body: JSON.stringify({
           owner,
           repo,
-          question: input
+          question: input,
+          mode: chatMode
         })
       });
 
@@ -75,7 +80,8 @@ export function Chat() {
         role: "ai",
         content: data.answer || "I'm sorry, I couldn't process that request.",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        sources: data.sources
+        sources: data.sources,
+        mode: data.mode
       };
       setMessages((prev) => [...prev, aiResponse]);
     } catch (err) {
@@ -103,7 +109,42 @@ export function Chat() {
             <p className="text-xs text-slate-400">Context: {owner}/{repo} (Main branch)</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-4">
+          {/* Mode Toggle */}
+          <div className="flex items-center gap-2 bg-slate-800 rounded-lg p-1">
+            <button
+              onClick={() => {
+                if (chatMode !== 'basic') {
+                  setChatMode('basic');
+                  handleClearContext();
+                }
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                chatMode === 'basic'
+                  ? 'bg-emerald-500/20 text-emerald-400'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <UserCircle className="w-3.5 h-3.5" />
+              Basic
+            </button>
+            <button
+              onClick={() => {
+                if (chatMode !== 'expert') {
+                  setChatMode('expert');
+                  handleClearContext();
+                }
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                chatMode === 'expert'
+                  ? 'bg-indigo-500/20 text-indigo-400'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Brain className="w-3.5 h-3.5" />
+              Expert
+            </button>
+          </div>
           <button onClick={handleClearContext} className="flex items-center gap-2 text-xs font-medium text-slate-400 bg-slate-800 hover:bg-slate-700 hover:text-white px-3 py-1.5 rounded-lg transition-colors">
             <FileText className="w-4 h-4" />
             Clear Context
@@ -135,7 +176,39 @@ export function Chat() {
                   ? "bg-indigo-600 text-white rounded-tr-sm" 
                   : "bg-slate-800 text-slate-200 border border-slate-700/50 rounded-tl-sm"
               }`}>
-                <p className="whitespace-pre-wrap">{msg.content}</p>
+                {msg.role === "user" ? (
+                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                ) : (
+                  <div className="prose prose-invert prose-sm max-w-none prose-headings:text-slate-100 prose-p:text-slate-300 prose-a:text-indigo-400 prose-strong:text-slate-100 prose-code:text-indigo-300 prose-code:bg-slate-900 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-slate-950 prose-pre:border prose-pre:border-slate-700">
+                    <ReactMarkdown 
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        code({ node, className, children, ...props }) {
+                          const match = /language-(\w+)/.exec(className || '');
+                          const isInline = !match;
+                          return isInline ? (
+                            <code className={className} {...props}>{children}</code>
+                          ) : (
+                            <div className="mt-3 rounded-lg overflow-hidden border border-slate-700 bg-slate-950">
+                              <div className="flex items-center px-4 py-2 bg-slate-900 border-b border-slate-800 text-xs font-medium text-slate-400 gap-2">
+                                <Code className="w-3.5 h-3.5" />
+                                {match[1]}
+                              </div>
+                              <pre className="p-4 text-xs font-mono text-slate-300 overflow-x-auto">
+                                <code {...props}>{children}</code>
+                              </pre>
+                            </div>
+                          );
+                        },
+                        pre({ children }) {
+                          return <>{children}</>;
+                        }
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
+                  </div>
+                )}
                 
                 {msg.codeSnippet && (
                   <div className="mt-4 rounded-lg overflow-hidden border border-slate-700 bg-slate-950">

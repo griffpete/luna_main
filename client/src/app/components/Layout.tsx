@@ -1,6 +1,7 @@
 import { Outlet, NavLink } from "react-router";
-import { Activity, LayoutDashboard, MessageSquare, Moon, Code2, Settings, ChevronDown, Loader2, Layers, BarChart3, RefreshCw } from "lucide-react";
+import { Activity, LayoutDashboard, MessageSquare, Moon, Code2, Settings, ChevronDown, Loader2, Layers, BarChart3, RefreshCw, Star } from "lucide-react";
 import { useRepo } from "../context/RepoContext";
+import { useSettings } from "../context/SettingsContext";
 import { useState, useEffect, useRef } from "react";
 
 type Repo = {
@@ -13,7 +14,9 @@ type Repo = {
 
 export function Layout() {
   const { owner, repo, apiBase, setRepo } = useRepo();
+  const { settings } = useSettings();
   const [repos, setRepos] = useState<Repo[]>([]);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [loadingRepos, setLoadingRepos] = useState(true);
   const [showDropdown, setShowDropdown] = useState(false);
   const [needsAnalysis, setNeedsAnalysis] = useState(false);
@@ -36,7 +39,7 @@ export function Layout() {
       await fetch(`${apiBase}/structure/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ owner, repo, forceReindex: true })
+        body: JSON.stringify({ owner, repo, forceReindex: true, technicalLevel: settings.technicalLevel })
       });
       setNeedsAnalysis(false);
       window.location.reload();
@@ -53,7 +56,7 @@ export function Layout() {
       await fetch(`${apiBase}/structure/refresh-overview`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ owner, repo })
+        body: JSON.stringify({ owner, repo, technicalLevel: settings.technicalLevel })
       });
       window.location.reload();
     } catch (err) {
@@ -80,9 +83,14 @@ export function Layout() {
   useEffect(() => {
     async function fetchRepos() {
       try {
-        const res = await fetch(`${apiBase}/repos`);
-        const data = await res.json();
-        setRepos(data.repos || []);
+        const [reposRes, favRes] = await Promise.all([
+          fetch(`${apiBase}/repos`),
+          fetch(`${apiBase}/favorites`)
+        ]);
+        const reposData = await reposRes.json();
+        const favData = await favRes.json();
+        setRepos(reposData.repos || []);
+        setFavorites(new Set(favData.favorites || []));
       } catch (err) {
         console.error('Failed to fetch repos:', err);
       } finally {
@@ -96,6 +104,46 @@ export function Layout() {
     const [newOwner, newName] = selectedRepo.fullName.split('/');
     setRepo(newOwner, newName);
     setShowDropdown(false);
+  };
+
+  const toggleFavorite = async (e: React.MouseEvent, repoName: string) => {
+    e.stopPropagation();
+    const fullName = repoName;
+    const isFavorite = favorites.has(fullName);
+
+    try {
+      if (isFavorite) {
+        await fetch(`${apiBase}/favorites`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repo: fullName })
+        });
+        setFavorites(prev => {
+          const next = new Set(prev);
+          next.delete(fullName);
+          return next;
+        });
+      } else {
+        await fetch(`${apiBase}/favorites`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repo: fullName })
+        });
+        setFavorites(prev => new Set(prev).add(fullName));
+      }
+    } catch (err) {
+      console.error('Failed to toggle favorite:', err);
+    }
+  };
+
+  const fetchFavorites = async () => {
+    try {
+      const res = await fetch(`${apiBase}/favorites`);
+      const data = await res.json();
+      setFavorites(new Set(data.favorites || []));
+    } catch (err) {
+      console.error('Failed to fetch favorites:', err);
+    }
   };
 
   const navItems = [
@@ -180,24 +228,86 @@ export function Layout() {
                 )}
               </button>
               {showDropdown && (
-                <div className="absolute top-full left-0 mt-1 w-64 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto">
-                  {repos.map((r) => (
-                    <button
-                      key={r.fullName}
-                      onClick={() => handleSelectRepo(r)}
-                      className={`w-full text-left px-4 py-3 hover:bg-slate-800 transition-colors border-b border-slate-800 last:border-b-0 ${
-                        r.fullName === `${owner}/${repo}` ? 'bg-indigo-500/10' : ''
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-200 font-medium">{r.name}</span>
-                        {r.private && (
-                          <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded">Private</span>
+                <div className="absolute top-full left-0 mt-1 w-72 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto">
+                  {(() => {
+                    const sortedRepos = [...repos].sort((a, b) => {
+                      const aFav = favorites.has(a.fullName);
+                      const bFav = favorites.has(b.fullName);
+                      if (aFav && !bFav) return -1;
+                      if (!aFav && bFav) return 1;
+                      return a.name.localeCompare(b.name);
+                    });
+                    const favoriteRepos = sortedRepos.filter(r => favorites.has(r.fullName));
+                    const otherRepos = sortedRepos.filter(r => !favorites.has(r.fullName));
+                    return (
+                      <>
+                        {favoriteRepos.length > 0 && (
+                          <>
+                            <div className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800">
+                              Favorites
+                            </div>
+                            {favoriteRepos.map((r) => (
+                              <button
+                                key={r.fullName}
+                                onClick={() => handleSelectRepo(r)}
+                                className={`w-full text-left px-4 py-3 hover:bg-slate-800 transition-colors border-b border-slate-800 ${
+                                  r.fullName === `${owner}/${repo}` ? 'bg-indigo-500/10' : ''
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-200 font-medium">{r.name}</span>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={(e) => toggleFavorite(e, r.fullName)}
+                                      className="text-amber-400 hover:text-amber-300"
+                                    >
+                                      <Star className="w-4 h-4 fill-current" />
+                                    </button>
+                                    {r.private && (
+                                      <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded">Private</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <p className="text-xs text-slate-400 mt-1 truncate">{r.description || 'No description'}</p>
+                              </button>
+                            ))}
+                          </>
                         )}
-                      </div>
-                      <p className="text-xs text-slate-400 mt-1 truncate">{r.description || 'No description'}</p>
-                    </button>
-                  ))}
+                        {otherRepos.length > 0 && (
+                          <>
+                            <div className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800">
+                              {favoriteRepos.length > 0 ? 'Other Repositories' : 'Repositories'}
+                            </div>
+                            {otherRepos.map((r) => (
+                              <button
+                                key={r.fullName}
+                                onClick={() => handleSelectRepo(r)}
+                                className={`w-full text-left px-4 py-3 hover:bg-slate-800 transition-colors border-b border-slate-800 last:border-b-0 ${
+                                  r.fullName === `${owner}/${repo}` ? 'bg-indigo-500/10' : ''
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-200 font-medium">{r.name}</span>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={(e) => toggleFavorite(e, r.fullName)}
+                                      className="text-slate-500 hover:text-amber-400"
+                                    >
+                                      <Star className="w-4 h-4" />
+                                    </button>
+                                    {r.private && (
+                                      <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded">Private</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <p className="text-xs text-slate-400 mt-1 truncate">{r.description || 'No description'}</p>
+                              </button>
+                            ))}
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>

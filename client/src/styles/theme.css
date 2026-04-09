@@ -1,5 +1,58 @@
 @custom-variant dark (&:is(.dark *));
 
+/* Light Mode - warm white background with purple accents */
+.light-mode {
+  --background: #faf8f5;
+  --foreground: #1a1a2e;
+  --card: #ffffff;
+  --card-foreground: #1a1a2e;
+  --popover: #ffffff;
+  --popover-foreground: #1a1a2e;
+  --primary: #6366f1;
+  --primary-foreground: #ffffff;
+  --secondary: #f0eeeb;
+  --secondary-foreground: #1a1a2e;
+  --muted: #f0eeeb;
+  --muted-foreground: #64748b;
+  --accent: #e0e7ff;
+  --accent-foreground: #4338ca;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #6366f1;
+  --sidebar: #f5f3f0;
+  --sidebar-foreground: #1a1a2e;
+  --sidebar-primary: #6366f1;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e0e7ff;
+  --sidebar-accent-foreground: #4338ca;
+  --sidebar-border: #e5e5e5;
+  --sidebar-ring: #6366f1;
+}
+
+/* Larger Text - 50% increase */
+.larger-text {
+  font-size: 150% !important;
+}
+
+.larger-text body {
+  font-size: 24px !important;
+}
+
+.larger-text h1 { font-size: 3rem !important; }
+.larger-text h2 { font-size: 2.25rem !important; }
+.larger-text h3 { font-size: 1.875rem !important; }
+.larger-text h4 { font-size: 1.5rem !important; }
+.larger-text p { font-size: 1.5rem !important; }
+.larger-text span { font-size: 1.5rem !important; }
+.larger-text div { font-size: 1.5rem !important; }
+.larger-text button { font-size: 1.5rem !important; }
+.larger-text input { font-size: 1.5rem !important; }
+.larger-text textarea { font-size: 1.5rem !important; }
+.larger-text li { font-size: 1.5rem !important; }
+.larger-text code { font-size: 1.25rem !important; }
+
 :root {
   --font-size: 16px;
   --background: #ffffff;

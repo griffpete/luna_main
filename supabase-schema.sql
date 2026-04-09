@@ -21,8 +21,20 @@ CREATE TABLE IF NOT EXISTS repo_analysis (
 -- Create index for faster lookups
 CREATE INDEX IF NOT EXISTS idx_repo_analysis_repo ON repo_analysis(repo);
 
+-- Repo Favorites Table
+CREATE TABLE IF NOT EXISTS repo_favorites (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  repo VARCHAR(255) NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create index for faster lookups
+CREATE INDEX IF NOT EXISTS idx_repo_favorites_repo ON repo_favorites(repo);
+
 -- Enable Row Level Security (optional - adjust based on your needs)
 ALTER TABLE repo_analysis ENABLE ROW LEVEL SECURITY;
+ALTER TABLE repo_favorites ENABLE ROW LEVEL SECURITY;
 
 -- For public read/write (adjust as needed for your auth setup)
 CREATE POLICY "Allow all" ON repo_analysis FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON repo_favorites FOR ALL USING (true) WITH CHECK (true);
