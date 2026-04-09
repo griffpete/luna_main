@@ -1,57 +1,282 @@
 @custom-variant dark (&:is(.dark *));
 
-/* Light Mode - warm white background with purple accents */
-.light-mode {
-  --background: #faf8f5;
-  --foreground: #1a1a2e;
-  --card: #ffffff;
-  --card-foreground: #1a1a2e;
-  --popover: #ffffff;
-  --popover-foreground: #1a1a2e;
-  --primary: #6366f1;
-  --primary-foreground: #ffffff;
-  --secondary: #f0eeeb;
-  --secondary-foreground: #1a1a2e;
-  --muted: #f0eeeb;
-  --muted-foreground: #64748b;
-  --accent: #e0e7ff;
-  --accent-foreground: #4338ca;
-  --destructive: #dc2626;
-  --destructive-foreground: #ffffff;
-  --border: #e5e5e5;
-  --input: #e5e5e5;
-  --ring: #6366f1;
-  --sidebar: #f5f3f0;
-  --sidebar-foreground: #1a1a2e;
-  --sidebar-primary: #6366f1;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e0e7ff;
-  --sidebar-accent-foreground: #4338ca;
-  --sidebar-border: #e5e5e5;
-  --sidebar-ring: #6366f1;
+/* Light Mode - white background, black text */
+.light body {
+  background-color: #ffffff !important;
+  color: #1e293b !important;
 }
 
-/* Larger Text - 50% increase */
-.larger-text {
-  font-size: 150% !important;
+/* Sidebar - keep purple in light mode */
+.light aside {
+  background-color: #6366f1 !important;
+  border-color: #4f46e5 !important;
 }
 
-.larger-text body {
-  font-size: 24px !important;
+/* Sidebar text - white */
+.light aside .text-slate-100,
+.light aside .text-slate-200,
+.light aside .text-slate-300,
+.light aside .text-slate-400,
+.light aside .text-slate-500,
+.light aside .text-white {
+  color: #ffffff !important;
 }
 
-.larger-text h1 { font-size: 3rem !important; }
-.larger-text h2 { font-size: 2.25rem !important; }
-.larger-text h3 { font-size: 1.875rem !important; }
-.larger-text h4 { font-size: 1.5rem !important; }
-.larger-text p { font-size: 1.5rem !important; }
-.larger-text span { font-size: 1.5rem !important; }
-.larger-text div { font-size: 1.5rem !important; }
-.larger-text button { font-size: 1.5rem !important; }
-.larger-text input { font-size: 1.5rem !important; }
-.larger-text textarea { font-size: 1.5rem !important; }
-.larger-text li { font-size: 1.5rem !important; }
-.larger-text code { font-size: 1.25rem !important; }
+.light aside .bg-slate-800,
+.light aside .bg-slate-800\/50 {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.light aside .hover\:bg-slate-800\/50:hover {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+.light aside .border-slate-800 {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Nav links in sidebar */
+.light aside nav a {
+  color: #ffffff !important;
+}
+
+.light aside nav a:hover {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.light aside nav a.bg-indigo-500\/10 {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Header - keep purple in light mode */
+.light header {
+  background-color: #6366f1 !important;
+  border-color: #4f46e5 !important;
+}
+
+/* Header text - white */
+.light header .text-slate-100,
+.light header .text-slate-200,
+.light header .text-slate-300,
+.light header .text-slate-400,
+.light header .text-white {
+  color: #ffffff !important;
+}
+
+/* Main content area - white background */
+.light .flex-1.overflow-auto {
+  background-color: #ffffff !important;
+}
+
+.light .bg-slate-950 {
+  background-color: #ffffff !important;
+}
+
+.light .bg-slate-900\/50 {
+  background-color: #f8fafc !important;
+}
+
+.light .bg-slate-900 {
+  background-color: #f8fafc !important;
+}
+
+.light .bg-slate-800\/20 {
+  background-color: #f8fafc !important;
+}
+
+.light .hover\:bg-slate-800\/20:hover {
+  background-color: #e2e8f0 !important;
+}
+
+/* Text colors in main content area - black */
+.light main .text-slate-100 { color: #1e293b !important; }
+.light main .text-slate-200 { color: #334155 !important; }
+.light main .text-slate-300 { color: #475569 !important; }
+.light main .text-slate-400 { color: #64748b !important; }
+.light main .text-slate-500 { color: #94a3b8 !important; }
+
+/* Borders in main area */
+.light main .border-slate-800 { border-color: #e2e8f0 !important; }
+.light main .border-slate-700 { border-color: #cbd5e1 !important; }
+
+/* Cards in main area */
+.light main .bg-slate-900.border,
+.light main .bg-slate-900 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Input fields */
+.light input,
+.light textarea,
+.light select {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+/* Chat bubbles */
+.light .bg-slate-800.text-slate-200 {
+  background-color: #f1f5f9 !important;
+  color: #1e293b !important;
+}
+
+.light .bg-indigo-600 {
+  background-color: #6366f1 !important;
+}
+
+/* Repo dropdown */
+.light .absolute.top-full.left-0.mt-1.w-72.bg-slate-900 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+.light .absolute.top-full.left-0.mt-1.w-72 .text-slate-200 {
+  color: #1e293b !important;
+}
+
+.light .absolute.top-full.left-0.mt-1.w-72 .text-slate-400 {
+  color: #64748b !important;
+}
+
+.light .absolute.top-full.left-0.mt-1.w-72 .bg-slate-800\/20:hover,
+.light .absolute.top-full.left-0.mt-1.w-72 .hover\:bg-slate-800\/30:hover {
+  background-color: #f1f5f9 !important;
+}
+
+/* Dividers */
+.light .divide-slate-800\/50 > * + * {
+  border-color: #e2e8f0 !important;
+}
+
+/* Charts */
+.light .recharts-cartesian-grid-horizontal line,
+.light .recharts-cartesian-grid-vertical line {
+  stroke: #e2e8f0 !important;
+}
+
+/* Scrollbar in light mode */
+.light ::-webkit-scrollbar {
+  width: 8px;
+}
+
+.light ::-webkit-scrollbar-track {
+  background: #f1f5f9 !important;
+}
+
+.light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important;
+  border-radius: 4px;
+}
+
+/* Sidebar - purple */
+.light .w-64 {
+  background-color: #6366f1 !important;
+}
+
+.light aside {
+  background-color: #6366f1 !important;
+  border-color: #4f46e5 !important;
+}
+
+/* Sidebar text - white */
+.light aside .text-slate-100,
+.light aside .text-slate-200,
+.light aside .text-slate-300,
+.light aside .text-slate-400,
+.light aside .text-white {
+  color: #ffffff !important;
+}
+
+.light aside .text-slate-500 {
+  color: #e0e7ff !important;
+}
+
+.light aside .bg-slate-800,
+.light aside .bg-slate-800\/50 {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.light aside .hover\:bg-slate-800\/50:hover {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+.light aside .border-slate-800 {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Nav links */
+.light aside nav a {
+  color: #ffffff !important;
+}
+
+.light aside nav a:hover {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.light aside nav a.bg-indigo-500\/10 {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Main content area - white background */
+.light .bg-slate-950 {
+  background-color: #ffffff !important;
+}
+
+.light .bg-slate-900\/50 {
+  background-color: #f8fafc !important;
+}
+
+.light .bg-slate-900 {
+  background-color: #f1f5f9 !important;
+}
+
+.light .bg-slate-800\/20 {
+  background-color: #f8fafc !important;
+}
+
+.light .hover\:bg-slate-800\/20:hover {
+  background-color: #e2e8f0 !important;
+}
+
+/* Header */
+.light header {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Text colors in main area */
+.light .text-slate-100 { color: #1e293b !important; }
+.light .text-slate-200 { color: #334155 !important; }
+.light .text-slate-300 { color: #475569 !important; }
+.light .text-slate-400 { color: #64748b !important; }
+.light .text-slate-500 { color: #94a3b8 !important; }
+
+/* Borders */
+.light .border-slate-800 { border-color: #e2e8f0 !important; }
+.light .border-slate-700 { border-color: #cbd5e1 !important; }
+
+/* Cards */
+.light .bg-slate-900.border {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Input fields */
+.light input,
+.light textarea,
+.light select {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+/* Font Size Scaling */
+html.text-small { font-size: 14px !important; }
+html.text-medium { font-size: 16px !important; }
+html.text-large { font-size: 20px !important; }
+html.text-xlarge { font-size: 24px !important; }
 
 :root {
   --font-size: 16px;

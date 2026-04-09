@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 
 type Settings = {
   lightMode: boolean;
-  largerText: boolean;
+  fontSize: 'small' | 'medium' | 'large' | 'xlarge';
   aiModel: 'gpt-3.5-turbo' | 'gpt-4' | 'gpt-4o' | 'gpt-4o-mini';
   technicalLevel: 'low' | 'medium' | 'high';
 };
@@ -14,7 +14,7 @@ type SettingsContextType = {
 
 const defaultSettings: Settings = {
   lightMode: false,
-  largerText: false,
+  fontSize: 'medium',
   aiModel: 'gpt-3.5-turbo',
   technicalLevel: 'medium',
 };
@@ -39,17 +39,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     
     // Apply light mode
     if (settings.lightMode) {
-      document.documentElement.classList.add('light-mode');
+      document.body.classList.add('light');
     } else {
-      document.documentElement.classList.remove('light-mode');
+      document.body.classList.remove('light');
     }
     
-    // Apply larger text
-    if (settings.largerText) {
-      document.documentElement.classList.add('larger-text');
-    } else {
-      document.documentElement.classList.remove('larger-text');
-    }
+    // Apply font size to html element
+    document.documentElement.classList.remove('text-small', 'text-medium', 'text-large', 'text-xlarge');
+    document.documentElement.classList.add(`text-${settings.fontSize}`);
   }, [settings]);
 
   const updateSettings = (updates: Partial<Settings>) => {
