@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { Sun, Moon, Type, Sparkles, Settings2 } from "lucide-react";
 import { useSettings } from "../context/SettingsContext";
 
@@ -16,16 +16,16 @@ const technicalLevels = [
 ];
 
 const fontSizes = [
-  { value: 'small', label: 'Small' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'large', label: 'Large' },
-  { value: 'xlarge', label: 'X-Large' },
+  { value: 'small', label: 'Small (90%)' },
+  { value: 'medium', label: 'Medium (100%)' },
+  { value: 'large', label: 'Large (125%)' },
+  { value: 'xlarge', label: 'X-Large (150%)' },
 ] as const;
 
 export function Settings() {
   const { settings, updateSettings } = useSettings();
-  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
-  const [levelDropdownOpen, setLevelDropdownOpen] = useState(false);
+  const [showModelDropdown, setShowModelDropdown] = useState(false);
+  const [showLevelDropdown, setShowLevelDropdown] = useState(false);
 
   const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
     <button
@@ -33,7 +33,7 @@ export function Settings() {
       role="switch"
       aria-checked={checked}
       onClick={onChange}
-      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${
+      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
         checked ? 'bg-indigo-500' : 'bg-slate-700'
       }`}
     >
@@ -46,74 +46,34 @@ export function Settings() {
     </button>
   );
 
-  const Dropdown = ({
-    value,
-    options,
-    onChange,
-    isOpen,
-    setIsOpen
-  }: {
-    value: string;
-    options: { value: string; label: string; description: string }[];
+  const Dropdown = ({ 
+    value, 
+    options, 
+    onChange 
+  }: { 
+    value: string; 
+    options: { value: string; label: string; description: string }[]; 
     onChange: (val: string) => void;
-    isOpen: boolean;
-    setIsOpen: (open: boolean) => void;
-  }) => {
-    const ref = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-      const handleClickOutside = (event: MouseEvent) => {
-        if (ref.current && !ref.current.contains(event.target as Node)) {
-          setIsOpen(false);
-        }
-      };
-
-      if (isOpen) {
-        document.addEventListener('mousedown', handleClickOutside);
-      }
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isOpen, setIsOpen]);
-
-    return (
-      <div className="relative" ref={ref}>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsOpen(!isOpen);
-          }}
-          className="flex items-center justify-between w-64 px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-200 hover:border-slate-600 transition-colors"
-        >
-          <span>{options.find(o => o.value === value)?.label}</span>
-          <svg className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-        {isOpen && (
-          <div
-            className="absolute top-full left-0 mt-2 w-80 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl overflow-hidden"
-            style={{ zIndex: 9999 }}
-          >
-            {options.map((option) => (
-              <button
-                key={option.value}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onChange(option.value);
-                  setIsOpen(false);
-                }}
-                className={`w-full text-left px-4 py-3 hover:bg-slate-700 transition-colors ${
-                  value === option.value ? 'bg-indigo-500/20 border-l-2 border-indigo-500' : ''
-                }`}
-              >
-                <div className="text-sm font-medium text-slate-200">{option.label}</div>
-                <div className="text-xs text-slate-400 mt-0.5">{option.description}</div>
-              </button>
-            ))}
-          </div>
-        )}
+  }) => (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-64 px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-200 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+        <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
       </div>
-    );
-  };
+    </div>
+  );
 
   return (
     <div className="p-8 max-w-5xl mx-auto text-slate-100">
@@ -123,11 +83,11 @@ export function Settings() {
       </div>
 
       <div className="space-y-8">
-        {/* Accessibility */}
+        {/* Appearance */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/50 flex items-center gap-3">
             <Settings2 className="w-5 h-5 text-indigo-400" />
-            <h3 className="text-lg font-medium text-white">Accessibility</h3>
+            <h3 className="text-lg font-medium text-white">Appearance</h3>
           </div>
           <div className="divide-y divide-slate-800/50">
             {/* Light Mode */}
@@ -141,9 +101,9 @@ export function Settings() {
                   <p className="text-sm text-slate-400 mt-1">Switch to a white background with purple sidebar.</p>
                 </div>
               </div>
-              <Toggle
-                checked={settings.lightMode}
-                onChange={() => updateSettings({ lightMode: !settings.lightMode })}
+              <Toggle 
+                checked={settings.lightMode} 
+                onChange={() => updateSettings({ lightMode: !settings.lightMode })} 
               />
             </div>
 
@@ -156,7 +116,7 @@ export function Settings() {
                 <div className="flex-1">
                   <h4 className="text-[15px] font-medium text-slate-200">Text Size</h4>
                   <p className="text-sm text-slate-400 mt-1">Adjust the size of text throughout the app.</p>
-
+                  
                   <div className="mt-4 flex items-center gap-2">
                     {fontSizes.map((size) => (
                       <button
@@ -200,8 +160,6 @@ export function Settings() {
                 value={settings.aiModel}
                 options={aiModels}
                 onChange={(val) => updateSettings({ aiModel: val as typeof settings.aiModel })}
-                isOpen={modelDropdownOpen}
-                setIsOpen={setModelDropdownOpen}
               />
             </div>
 
@@ -220,17 +178,15 @@ export function Settings() {
                 value={settings.technicalLevel}
                 options={technicalLevels}
                 onChange={(val) => updateSettings({ technicalLevel: val as typeof settings.technicalLevel })}
-                isOpen={levelDropdownOpen}
-                setIsOpen={setLevelDropdownOpen}
               />
             </div>
           </div>
         </div>
       </div>
-
+      
       <div className="mt-8 flex justify-between items-center">
-        <button
-          onClick={() => updateSettings({ lightMode: false, fontSize: 'medium', aiModel: 'gpt-3.5-turbo', technicalLevel: 'medium' })}
+        <button 
+          onClick={() => updateSettings({ lightMode: true, fontSize: 'medium', aiModel: 'gpt-3.5-turbo', technicalLevel: 'medium' })}
           className="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition-colors"
         >
           Reset to Defaults
