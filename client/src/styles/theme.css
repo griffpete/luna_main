@@ -6,6 +6,70 @@ html.text-medium { font-size: 16px !important; }
 html.text-large { font-size: 20px !important; }
 html.text-xlarge { font-size: 24px !important; }
 
+/* ===== LIGHT MODE ===== */
+
+/* Backgrounds: dark -> light */
+body:not(.dark) .bg-slate-950 { background-color: #ffffff !important; }
+body:not(.dark) .bg-slate-950\/40 { background-color: rgba(255,255,255,0.4) !important; }
+body:not(.dark) .bg-slate-950\/50 { background-color: rgba(255,255,255,0.5) !important; }
+body:not(.dark) .bg-slate-900 { background-color: #f8fafc !important; }
+body:not(.dark) .bg-slate-900\/50 { background-color: rgba(248,250,252,0.5) !important; }
+body:not(.dark) .bg-slate-900\/80 { background-color: rgba(248,250,252,0.8) !important; }
+body:not(.dark) .bg-slate-800 { background-color: #f1f5f9 !important; }
+body:not(.dark) .bg-slate-800\/20 { background-color: rgba(241,245,249,0.2) !important; }
+body:not(.dark) .bg-slate-800\/30 { background-color: rgba(241,245,249,0.3) !important; }
+body:not(.dark) .bg-slate-800\/50 { background-color: rgba(241,245,249,0.5) !important; }
+body:not(.dark) .bg-slate-700 { background-color: #e2e8f0 !important; }
+
+/* Hover backgrounds */
+body:not(.dark) .hover\:bg-slate-700:hover { background-color: #e2e8f0 !important; }
+body:not(.dark) .hover\:bg-slate-800:hover { background-color: #f1f5f9 !important; }
+body:not(.dark) .hover\:bg-slate-800\/20:hover { background-color: rgba(241,245,249,0.4) !important; }
+body:not(.dark) .hover\:bg-slate-800\/30:hover { background-color: rgba(241,245,249,0.5) !important; }
+body:not(.dark) .hover\:bg-slate-800\/50:hover { background-color: rgba(241,245,249,0.7) !important; }
+
+/* Text: light -> dark */
+body:not(.dark) .text-white { color: #0f172a !important; }
+body:not(.dark) .text-slate-100 { color: #0f172a !important; }
+body:not(.dark) .text-slate-200 { color: #1e293b !important; }
+body:not(.dark) .text-slate-300 { color: #334155 !important; }
+body:not(.dark) .text-slate-400 { color: #475569 !important; }
+body:not(.dark) .text-slate-500 { color: #64748b !important; }
+body:not(.dark) .text-slate-600 { color: #475569 !important; }
+
+/* Hover text */
+body:not(.dark) .hover\:text-white:hover { color: #0f172a !important; }
+body:not(.dark) .hover\:text-slate-200:hover { color: #1e293b !important; }
+body:not(.dark) .hover\:text-slate-300:hover { color: #334155 !important; }
+
+/* Borders */
+body:not(.dark) .border-slate-800 { border-color: #e2e8f0 !important; }
+body:not(.dark) .border-slate-700 { border-color: #cbd5e1 !important; }
+body:not(.dark) .border-slate-700\/50 { border-color: rgba(203,213,225,0.5) !important; }
+body:not(.dark) .border-slate-800\/50 { border-color: rgba(226,232,240,0.5) !important; }
+
+/* Dividers */
+body:not(.dark) .divide-slate-800 > * + * { border-color: #e2e8f0 !important; }
+body:not(.dark) .divide-slate-800\/50 > * + * { border-color: rgba(226,232,240,0.5) !important; }
+
+/* Inputs */
+body:not(.dark) input, body:not(.dark) textarea, body:not(.dark) select {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #1e293b !important;
+}
+
+/* Prose overrides for chat markdown */
+body:not(.dark) .prose-headings\:text-slate-100 :is(h1,h2,h3,h4,h5,h6) { color: #0f172a !important; }
+body:not(.dark) .prose-p\:text-slate-300 p { color: #334155 !important; }
+body:not(.dark) .prose-strong\:text-slate-100 strong { color: #0f172a !important; }
+body:not(.dark) .prose-code\:bg-slate-900 code { background-color: #f1f5f9 !important; }
+body:not(.dark) .prose-pre\:bg-slate-950 pre { background-color: #f8fafc !important; }
+body:not(.dark) .prose-code\:text-indigo-300 code { color: #4338ca !important; }
+
+/* Charts */
+body:not(.dark) .recharts-cartesian-grid line { stroke: #e2e8f0 !important; }
+
 :root {
   --font-size: 16px;
   --background: #ffffff;

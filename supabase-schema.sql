@@ -14,6 +14,10 @@ CREATE TABLE IF NOT EXISTS repo_analysis (
   recent_history TEXT,
   direction TEXT,
   analysis_data JSONB,
+  total_files INTEGER DEFAULT 0,
+  code_files INTEGER DEFAULT 0,
+  complexity REAL DEFAULT 0,
+  code_smells JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

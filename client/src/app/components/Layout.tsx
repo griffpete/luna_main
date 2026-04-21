@@ -53,7 +53,7 @@ export function Layout() {
   const handleRefreshOverview = async () => {
     setIsAnalyzing(true);
     try {
-      await fetch(`${apiBase}/structure/refresh-overview`, {
+      await fetch(`${apiBase}/structure/refresh-metrics`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ owner, repo, technicalLevel: settings.technicalLevel })

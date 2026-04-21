@@ -16,11 +16,15 @@ async function getLastAnalysis(owner, repo) {
     commitSha: data.commit_sha,
     description: data.description,
     recentHistory: data.recent_history,
-    direction: data.direction
+    direction: data.direction,
+    totalFiles: data.total_files,
+    codeFiles: data.code_files,
+    complexity: data.complexity,
+    codeSmells: data.code_smells
   };
 }
 
-async function setLastAnalysis(owner, repo, commitCount, commitSha = null, overviewData = {}) {
+async function setLastAnalysis(owner, repo, commitCount, commitSha = null, overviewData = {}, metricsData = {}) {
   if (!supabase) return;
 
   const { error } = await supabase
@@ -32,7 +36,11 @@ async function setLastAnalysis(owner, repo, commitCount, commitSha = null, overv
       commit_sha: commitSha,
       description: overviewData.description || null,
       recent_history: overviewData.recentHistory || null,
-      direction: overviewData.direction || null
+      direction: overviewData.direction || null,
+      total_files: metricsData.totalFiles || 0,
+      code_files: metricsData.codeFiles || 0,
+      complexity: metricsData.complexity || 0,
+      code_smells: metricsData.codeSmells || []
     }, {
       onConflict: 'repo'
     });
@@ -92,4 +100,23 @@ async function getOverviewData(owner, repo) {
   };
 }
 
-module.exports = { getLastAnalysis, setLastAnalysis, getAnalysisData, setAnalysisData, getOverviewData };
+async function getMetrics(owner, repo) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('repo_analysis')
+    .select('total_files, code_files, complexity, code_smells, last_analyzed')
+    .eq('repo', `${owner}/${repo}`)
+    .single();
+
+  if (error || !data) return null;
+  return {
+    totalFiles: data.total_files,
+    codeFiles: data.code_files,
+    complexity: data.complexity,
+    codeSmells: data.code_smells,
+    lastAnalyzed: data.last_analyzed
+  };
+}
+
+module.exports = { getLastAnalysis, setLastAnalysis, getAnalysisData, setAnalysisData, getOverviewData, getMetrics };
