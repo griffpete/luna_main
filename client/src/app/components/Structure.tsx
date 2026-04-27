@@ -421,7 +421,7 @@ function FileDetailPanel({ node, allNodes }: { node: FileNode; allNodes: FileNod
 // ---- Main Component ----
 
 export function Structure() {
-  const { owner, repo, apiBase } = useRepo();
+  const { owner, repo, apiBase, refreshKey } = useRepo();
   const [viewMode, setViewMode] = useState<ViewMode>("architecture");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -454,8 +454,27 @@ export function Structure() {
       }
     }
 
-    Promise.all([fetchMetrics(), fetchOverview()]).finally(() => setLoading(false));
-  }, [owner, repo, apiBase]);
+    async function fetchCachedAnalysis() {
+      try {
+        const analysisRes = await fetch(`${apiBase}/structure/analysis?owner=${owner}&repo=${repo}`);
+        const analysisJson = await analysisRes.json();
+        if (analysisJson.analysis) {
+          setAnalysisData(analysisJson.analysis);
+          setMetrics(prev => prev ? {
+            ...prev,
+            complexity: analysisJson.analysis.cyclomaticComplexity,
+            codeSmells: analysisJson.analysis.codeSmells,
+            totalFiles: analysisJson.analysis.totalFiles,
+            codeFiles: analysisJson.analysis.codeFiles
+          } : null);
+        }
+      } catch (err) {
+        console.error('Failed to fetch cached analysis:', err);
+      }
+    }
+
+    Promise.all([fetchMetrics(), fetchOverview(), fetchCachedAnalysis()]).finally(() => setLoading(false));
+  }, [owner, repo, apiBase, refreshKey]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

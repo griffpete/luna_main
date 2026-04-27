@@ -1,20 +1,52 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 interface RepoContextType {
   owner: string;
   repo: string;
   branch: string;
+  refreshKey: number;
   setRepo: (owner: string, repo: string, branch?: string) => void;
+  triggerRefresh: () => void;
   apiBase: string;
+}
+
+const STORAGE_KEY = 'luna-last-repo';
+
+interface StoredRepo {
+  owner: string;
+  repo: string;
+  branch: string;
+}
+
+function getStoredRepo(): StoredRepo | null {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {
+    console.error('Failed to parse stored repo:', e);
+  }
+  return null;
 }
 
 const RepoContext = createContext<RepoContextType | undefined>(undefined);
 
 export function RepoProvider({ children }: { children: ReactNode }) {
-  const [owner, setOwner] = useState('griffpete');
-  const [repo, setRepoName] = useState('hotTake');
-  const [branch, setBranch] = useState('main');
+  const stored = getStoredRepo();
+  const [owner, setOwner] = useState(stored?.owner || 'griffpete');
+  const [repo, setRepoName] = useState(stored?.repo || 'hotTake');
+  const [branch, setBranch] = useState(stored?.branch || 'main');
+  const [refreshKey, setRefreshKey] = useState(0);
   const apiBase = 'http://localhost:3000';
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ owner, repo, branch }));
+    } catch (e) {
+      console.error('Failed to save repo to storage:', e);
+    }
+  }, [owner, repo, branch]);
 
   const setRepo = (newOwner: string, newRepo: string, newBranch = 'main') => {
     setOwner(newOwner);
@@ -22,8 +54,12 @@ export function RepoProvider({ children }: { children: ReactNode }) {
     setBranch(newBranch);
   };
 
+  const triggerRefresh = () => {
+    setRefreshKey(k => k + 1);
+  };
+
   return (
-    <RepoContext.Provider value={{ owner, repo, branch, setRepo, apiBase }}>
+    <RepoContext.Provider value={{ owner, repo, branch, refreshKey, setRepo, triggerRefresh, apiBase }}>
       {children}
     </RepoContext.Provider>
   );

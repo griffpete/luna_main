@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { GitCommit, Activity, Clock, Sparkles } from "lucide-react";
 import { useRepo } from "../context/RepoContext";
+import { useSettings } from "../context/SettingsContext";
 
 type CommitData = {
   sha: string;
@@ -12,7 +13,8 @@ type CommitData = {
 };
 
 export function Dashboard() {
-  const { owner, repo, apiBase } = useRepo();
+  const { owner, repo, apiBase, refreshKey } = useRepo();
+  const { settings } = useSettings();
   const [recentCommits, setRecentCommits] = useState<CommitData[]>([]);
   const [description, setDescription] = useState<string>('');
   const [recentHistory, setRecentHistory] = useState<string>('');
@@ -24,7 +26,7 @@ export function Dashboard() {
       console.log('Dashboard: fetching data...');
       setLoading(true);
       try {
-        const overviewRes = await fetch(`${apiBase}/structure/overview?owner=${owner}&repo=${repo}`);
+        const overviewRes = await fetch(`${apiBase}/structure/overview?owner=${owner}&repo=${repo}&technicalLevel=${settings.technicalLevel}`);
         console.log('Overview response status:', overviewRes.status);
         const overviewData = await overviewRes.json();
         console.log('Overview data received:', overviewData);
@@ -45,7 +47,7 @@ export function Dashboard() {
     }
 
     fetchData();
-  }, [owner, repo, apiBase]);
+  }, [owner, repo, apiBase, settings.technicalLevel, refreshKey]);
 
   const formatTimeAgo = (dateStr: string) => {
     const date = new Date(dateStr);

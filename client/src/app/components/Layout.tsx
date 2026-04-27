@@ -13,7 +13,7 @@ type Repo = {
 };
 
 export function Layout() {
-  const { owner, repo, apiBase, setRepo } = useRepo();
+  const { owner, repo, apiBase, setRepo, triggerRefresh, refreshKey } = useRepo();
   const { settings } = useSettings();
   const [repos, setRepos] = useState<Repo[]>([]);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
@@ -42,7 +42,7 @@ export function Layout() {
         body: JSON.stringify({ owner, repo, forceReindex: true, technicalLevel: settings.technicalLevel })
       });
       setNeedsAnalysis(false);
-      window.location.reload();
+      triggerRefresh();
     } catch (err) {
       console.error('Analysis failed:', err);
     } finally {
@@ -58,7 +58,7 @@ export function Layout() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ owner, repo, technicalLevel: settings.technicalLevel })
       });
-      window.location.reload();
+      triggerRefresh();
     } catch (err) {
       console.error('Refresh failed:', err);
     } finally {

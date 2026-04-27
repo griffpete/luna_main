@@ -66,8 +66,13 @@ async function setAnalysisData(owner, repo, analysisData) {
 
   const { error } = await supabase
     .from('repo_analysis')
-    .update({ analysis_data: analysisData })
-    .eq('repo', `${owner}/${repo}`);
+    .upsert({
+      repo: `${owner}/${repo}`,
+      analysis_data: analysisData,
+      last_analyzed: new Date().toISOString()
+    }, {
+      onConflict: 'repo'
+    });
 
   if (error) console.error('Failed to save analysis data:', error);
 }

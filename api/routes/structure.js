@@ -24,13 +24,34 @@ function getOpenAI() {
 function safeJsonParse(text) {
   try {
     text = text.trim();
+    
+    let jsonStr = null;
+    
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
+      jsonStr = jsonMatch[0];
+    } else {
+      const bracketStart = text.indexOf('{');
+      const bracketEnd = text.lastIndexOf('}');
+      if (bracketStart !== -1 && bracketEnd !== -1 && bracketEnd > bracketStart) {
+        jsonStr = text.substring(bracketStart, bracketEnd + 1);
+      }
     }
-    return JSON.parse(text);
+    
+    if (!jsonStr) return null;
+    
+    const parsed = JSON.parse(jsonStr);
+    
+    if (parsed.recentHistory && Array.isArray(parsed.recentHistory)) {
+      parsed.recentHistory = parsed.recentHistory.join('\n');
+    }
+    if (parsed.direction && Array.isArray(parsed.direction)) {
+      parsed.direction = parsed.direction.join('\n');
+    }
+    
+    return parsed;
   } catch (e) {
-    console.error('Safe JSON parse failed:', e.message);
+    console.error('Safe JSON parse failed:', e.message, 'Input:', text.substring(0, 200));
     return null;
   }
 }
@@ -48,19 +69,17 @@ function getOverviewPrompt(level = 'medium') {
   const technicalContext = getTechnicalLevelPrompt(level);
   return `${technicalContext}
 
+IMPORTANT: recentHistory and direction must be PLAIN TEXT STRINGS, NOT arrays. Use newline characters between lines.
+
 Return a JSON object with exactly these fields:
 
-1. "description": A concise 1-2 sentence description of what this project does.
+1. "description": A string - concise 1-2 sentence description of what this project does.
 
-2. "recentHistory": 3-5 SEPARATE lines of plain text (NO quotes, NO brackets) about what was worked on recently. Each line must be ONE COMPLETE SENTENCE ending with a period. Example:
-Added new authentication feature.
-Fixed memory leak in data processor.
-Updated API client to support new endpoints.
+2. "recentHistory": A STRING (not array) with 3-5 lines about what was worked on recently. Each line must be ONE COMPLETE SENTENCE ending with a period. Separate lines with newline characters. Example:
+"Added new authentication feature.\\nFixed memory leak in data processor.\\nUpdated API client to support new endpoints."
 
-3. "direction": 3-5 SEPARATE lines of plain text (NO quotes, NO brackets) about the project's trajectory. Each line must be ONE COMPLETE SENTENCE ending with a period. Example:
-Active development on mobile support.
-Performance optimization is a current focus.
-Planning major release for next quarter.
+3. "direction": A STRING (not array) with 3-5 lines about the project's trajectory. Each line must be ONE COMPLETE SENTENCE ending with a period. Separate lines with newline characters. Example:
+"Active development on mobile support.\\nPerformance optimization is a current focus.\\nPlanning major release for next quarter."
 
 Return ONLY valid JSON with these three fields, nothing else.`;
 }
@@ -475,13 +494,18 @@ router.post('/structure/refresh-metrics', async (req, res) => {
 });
 
 router.get('/structure/overview', async (req, res) => {
-  const { owner, repo } = req.query;
+  const { owner, repo, technicalLevel } = req.query;
   if (!owner || !repo) return res.status(400).json({ error: 'owner and repo are required' });
+
+  const level = technicalLevel || 'medium';
 
   try {
     const lastAnalysis = await getLastAnalysis(owner, repo);
 
     let topLanguages = [];
+    let description = lastAnalysis?.description || null;
+    let recentHistory = lastAnalysis?.recentHistory || null;
+    let direction = lastAnalysis?.direction || null;
 
     try {
       const { data: tree } = await octokit.git.getTree({
@@ -514,11 +538,65 @@ router.get('/structure/overview', async (req, res) => {
       console.log('GitHub API failed, returning cached data');
     }
 
+    const shouldRegenerate = !lastAnalysis || technicalLevel;
+
+    if (shouldRegenerate) {
+      try {
+        const { data: commits } = await octokit.repos.listCommits({
+          owner,
+          repo,
+          per_page: 10
+        });
+
+        const recentCommitsContext = commits.map(c => ({
+          sha: c.sha.substring(0, 7),
+          message: c.commit.message.split('\n')[0],
+          author: c.commit.author.name,
+          date: c.commit.author.date
+        }));
+
+        const openai = getOpenAI();
+        const overviewCompletion = await openai.chat.completions.create({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            { role: 'system', content: getOverviewPrompt(level) },
+            { role: 'user', content: 'Recent commits:\n' + JSON.stringify(recentCommitsContext, null, 2) }
+          ]
+        });
+
+        try {
+          const rawOverview = overviewCompletion.choices[0].message.content;
+          const parsed = safeJsonParse(rawOverview);
+          if (parsed) {
+            description = parsed.description;
+            recentHistory = parsed.recentHistory;
+            direction = parsed.direction;
+          }
+        } catch (e) {
+          console.error('Failed to parse overview:', e);
+        }
+
+        const { data: allCommits } = await octokit.repos.listCommits({
+          owner,
+          repo,
+          per_page: 1
+        });
+        const commitCount = allCommits.length;
+
+        await setLastAnalysis(owner, repo, commitCount, commits[0]?.sha,
+          { description, recentHistory, direction },
+          { totalFiles: 0, codeFiles: 0, complexity: 0, codeSmells: [] }
+        );
+      } catch (aiError) {
+        console.error('AI overview generation failed:', aiError.message);
+      }
+    }
+
     const response = {
       topLanguages,
-      description: lastAnalysis?.description || null,
-      recentHistory: lastAnalysis?.recentHistory || null,
-      direction: lastAnalysis?.direction || null
+      description,
+      recentHistory,
+      direction
     };
     
     res.json(response);
@@ -589,6 +667,21 @@ router.get('/structure/status', async (req, res) => {
       lastAnalysis,
       needsAnalysis: !lastAnalysis || currentCommitCount > lastAnalysis.commitCount
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/structure/analysis', async (req, res) => {
+  const { owner, repo } = req.query;
+  if (!owner || !repo) return res.status(400).json({ error: 'owner and repo are required' });
+
+  try {
+    const analysisData = await getAnalysisData(owner, repo);
+    if (!analysisData) {
+      return res.json({ analysis: null });
+    }
+    res.json({ analysis: analysisData });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
